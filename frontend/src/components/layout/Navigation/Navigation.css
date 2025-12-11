@@ -1,0 +1,139 @@
+/* Basic navbar - slim and sticky at top */
+.navbar {
+  position: sticky;
+  top: 0;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+  z-index: 1000;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.nav-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Logo styling */
+.nav-logo {
+  font-size: 1.5rem;
+  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Links container - centered */
+.nav-links {
+  display: flex;
+  gap: 1rem;
+}
+
+/* Individual link/button styling */
+.nav-link {
+  padding: 0.5rem 1.5rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #4a5568;
+  font-weight: 500;
+  background-color: rgba(243, 244, 246, 0.8);
+  transition: all 0.3s ease;
+}
+
+/* Hover effect - bright neon blue glow */
+.nav-link:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(139, 92, 246, 0.1) 100%
+  );
+  color: #3b82f6;
+  transform: translateY(-2px);
+  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+}
+
+/* Active link styling */
+.nav-link.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: white;
+  box-shadow: 0 0 4px #3b82f6, 0 0 8px #3b82f6;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: rgba(243, 244, 246, 0.8);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+/* Theme button hover - bright glow */
+.theme-toggle:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(139, 92, 246, 0.1) 100%
+  );
+  transform: translateY(-2px) rotate(20deg);
+  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+}
+
+/* Dark mode styles */
+.navbar.dark {
+  background: rgba(26, 26, 46, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);
+}
+
+.navbar.dark .nav-logo {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.navbar.dark .nav-link {
+  color: #e2e8f0;
+  background-color: rgba(51, 51, 51, 0.5);
+}
+
+.navbar.dark .nav-link:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(139, 92, 246, 0.2) 100%
+  );
+  color: #60a5fa;
+  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+}
+
+.navbar.dark .nav-link.active {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  color: white;
+  box-shadow: 0 0 4px #3b82f6, 0 0 8px #3b82f6;
+}
+
+.navbar.dark .theme-toggle {
+  background-color: rgba(51, 51, 51, 0.5);
+  color: white;
+}
+
+.navbar.dark .theme-toggle:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(139, 92, 246, 0.2) 100%
+  );
+  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+}

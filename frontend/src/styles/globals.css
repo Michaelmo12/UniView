@@ -1,0 +1,87 @@
+/* ===== LIGHT MODE (Default) ===== */
+body {
+  margin: 0; /* Remove default browser margin */
+
+  /* Font stack - tries each font in order until one is available */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    sans-serif;
+
+  /* Gradient background - starts light blue (#f5f7fa) and fades to gray-blue (#c3cfe2) */
+  /* 135deg = diagonal from top-left to bottom-right */
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+
+  /* Text color - dark gray for readability */
+  color: #2d3748;
+
+  /* Smooth transition when switching themes (0.3 seconds) */
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* ===== DARK MODE ===== */
+/* When body has class "dark", these styles override the light mode */
+body.dark {
+  /* Dark gradient - deep blue/purple theme */
+  /* Goes from very dark blue (#0f0f23) to slightly lighter dark blue (#1a1a2e) */
+  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+
+  /* Light gray text for readability on dark background */
+  color: #e2e8f0;
+}
+
+/* ===== PAGE CONTENT CONTAINER ===== */
+/* Class you add to page wrappers (like <div className="page-content">) */
+.page-content {
+  /* Height = Full screen (100vh) minus navbar (60px) */
+  /* calc() does the math: 100vh - 60px */
+  min-height: calc(100vh - 60px);
+
+  /* Space around content: 32px (2rem × 16px = 32px) */
+  padding: 2rem;
+}
+
+/* ===== PAGE HEADINGS (Light Mode) ===== */
+.page-content h1 {
+  /* Large heading size: 2.5 × 16px = 40px */
+  font-size: 2.5rem;
+
+  /* Space below heading */
+  margin-bottom: 1rem;
+
+  /* Gradient text effect - purple to pink */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+
+  /* These 3 lines make the gradient apply to TEXT instead of background */
+  -webkit-background-clip: text; /* Clip background to text shape (Safari) */
+  -webkit-text-fill-color: transparent; /* Make text transparent so gradient shows */
+  background-clip: text; /* Standard version (other browsers) */
+}
+
+/* ===== PAGE HEADINGS (Dark Mode) ===== */
+/* When in dark mode, headings get different gradient colors */
+body.dark .page-content h1 {
+  /* Brighter blue-purple gradient for dark backgrounds */
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+
+  /* Same gradient-as-text technique */
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===== PAGE PARAGRAPHS (Light Mode) ===== */
+.page-content p {
+  /* Slightly larger than default: 1.125 × 16px = 18px */
+  font-size: 1.125rem;
+
+  /* Line height for readability - 1.75 × font size */
+  line-height: 1.75;
+
+  /* Medium gray text */
+  color: #4a5568;
+}
+
+/* ===== PAGE PARAGRAPHS (Dark Mode) ===== */
+body.dark .page-content p {
+  /* Lighter gray for readability on dark background */
+  color: #cbd5e0;
+}
