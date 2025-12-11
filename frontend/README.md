@@ -18,6 +18,7 @@ frontend/
 │   ├── components/       # Reusable UI components
 │   │   └── layout/       # Layout components (Navigation, etc.)
 │   ├── context/          # React Context providers
+│   ├── features/         # Feature-based modules
 │   ├── pages/            # Page components
 │   ├── routes/           # Routing configuration
 │   ├── styles/           # Global styles

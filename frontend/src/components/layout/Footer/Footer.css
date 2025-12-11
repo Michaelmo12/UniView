@@ -1,0 +1,74 @@
+/* Footer - slim and at bottom */
+.footer {
+  height: 40px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(229, 231, 235, 0.8);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+  margin-top: auto;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.footer-text {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #6b7280;  /* Gray color for "Created by" */
+}
+
+.creator-name {
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.footer-email {
+  font-size: 0.875rem;
+  color: #6b7280;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  padding: 0.25rem 0.75rem;
+  border-radius: 6px;
+}
+
+.footer-email:hover {
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* Dark mode */
+.footer.dark {
+  background: rgba(26, 26, 46, 0.95);
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+  box-shadow: 0 -1px 3px rgba(59, 130, 246, 0.1);
+}
+
+.footer.dark .footer-text {
+  color: #9ca3af;  /* Light gray in dark mode */
+}
+
+.footer.dark .creator-name {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.footer.dark .footer-email {
+  color: #9ca3af;
+}
+
+.footer.dark .footer-email:hover {
+  color: #60a5fa;
+  background: rgba(59, 130, 246, 0.2);
+}

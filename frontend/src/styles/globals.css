@@ -1,6 +1,7 @@
 /* ===== LIGHT MODE (Default) ===== */
 body {
   margin: 0; /* Remove default browser margin */
+  padding: 0; /* Add this to ensure no padding */
 
   /* Font stack - tries each font in order until one is available */
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
@@ -15,6 +16,8 @@ body {
 
   /* Smooth transition when switching themes (0.3 seconds) */
   transition: background 0.3s ease, color 0.3s ease;
+
+  overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
 /* ===== DARK MODE ===== */
@@ -33,7 +36,7 @@ body.dark {
 .page-content {
   /* Height = Full screen (100vh) minus navbar (60px) */
   /* calc() does the math: 100vh - 60px */
-  min-height: calc(100vh - 60px);
+  /*min-height: calc(100vh - 60px);*/
 
   /* Space around content: 32px (2rem × 16px = 32px) */
   padding: 2rem;
