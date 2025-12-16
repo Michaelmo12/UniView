@@ -1,0 +1,57 @@
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Environment variables
+.env
+.env.local
+
+# Backup files (don't commit actual data)
+backups/*.sql
+
+# But keep migration files
+!migrations/*.sql
+
+# RSA Keys - NEVER commit private key
+keys/private.pem
+keys/public.pem
+
+/README.md
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Backup files
+*.old
+*.bak
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
