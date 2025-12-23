@@ -1,13 +1,41 @@
-/* Basic navbar - slim and sticky at top */
+
 .navbar {
   position: sticky;
   top: 0;
   height: 60px;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(229, 231, 235, 0.8);
+  backdrop-filter: blur(15px);
+  border-bottom: 2px solid rgba(102, 126, 234, 0.3);
   z-index: 1000;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow:
+    0 4px 20px rgba(102, 126, 234, 0.1),
+    0 0 30px rgba(102, 126, 234, 0.05),
+    inset 0 -2px 8px rgba(102, 126, 234, 0.05);
+  position: relative;
+}
+
+/* Subtle animated bottom border for light mode */
+.navbar::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(102, 126, 234, 0.5) 20%,
+    rgba(118, 75, 162, 0.6) 50%,
+    rgba(102, 126, 234, 0.5) 80%,
+    transparent 100%
+  );
+  animation: lightBorderScan 4s ease-in-out infinite;
+}
+
+@keyframes lightBorderScan {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
 }
 
 .nav-container {
@@ -20,120 +48,289 @@
   align-items: center;
 }
 
-/* Logo styling */
+/* Logo styling - Enhanced with glow */
 .nav-logo {
   font-size: 1.5rem;
-  font-weight: bold;
+  font-weight: 900;
+  letter-spacing: 1.5px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 4px rgba(102, 126, 234, 0.3));
+  text-transform: uppercase;
 }
 
-/* Links container - centered */
+/* Links container */
 .nav-links {
   display: flex;
   gap: 1rem;
 }
 
-/* Individual link/button styling */
+/* Individual link/button styling - Tech style */
 .nav-link {
   padding: 0.5rem 1.5rem;
-  border-radius: 8px;
+  border-radius: 6px;
   text-decoration: none;
   color: #4a5568;
-  font-weight: 500;
-  background-color: rgba(243, 244, 246, 0.8);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  background: rgba(243, 244, 246, 0.9);
+  border: 1px solid rgba(102, 126, 234, 0.2);
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 5px rgba(102, 126, 234, 0.1),
+    inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
-/* Hover effect - bright neon blue glow */
+/* Animated background shimmer */
+.nav-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(102, 126, 234, 0.15) 50%,
+    transparent 100%
+  );
+  transition: left 0.5s ease;
+}
+
+.nav-link:hover::before {
+  left: 100%;
+}
+
+/* Hover effect - subtle glow */
 .nav-link:hover {
   background: linear-gradient(
     135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(139, 92, 246, 0.1) 100%
+    rgba(102, 126, 234, 0.15) 0%,
+    rgba(139, 92, 246, 0.15) 100%
   );
-  color: #3b82f6;
+  color: #667eea;
+  border-color: #667eea;
   transform: translateY(-2px);
-  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+  box-shadow:
+    0 0 10px rgba(102, 126, 234, 0.3),
+    0 0 20px rgba(102, 126, 234, 0.2),
+    0 4px 10px rgba(102, 126, 234, 0.15),
+    inset 0 0 10px rgba(102, 126, 234, 0.05);
 }
 
-/* Active link styling */
+/* Active link - highlighted */
 .nav-link.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #667eea 0%, #8b5cf6 100%);
   color: white;
-  box-shadow: 0 0 4px #3b82f6, 0 0 8px #3b82f6;
+  border: 2px solid #667eea;
+  font-weight: 700;
+  box-shadow:
+    0 0 15px rgba(102, 126, 234, 0.5),
+    0 0 30px rgba(102, 126, 234, 0.3),
+    0 4px 15px rgba(102, 126, 234, 0.2),
+    inset 0 0 15px rgba(255, 255, 255, 0.1);
 }
 
-/* Theme toggle button */
+/* Theme toggle button - Enhanced */
 .theme-toggle {
   padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 8px;
-  background: rgba(243, 244, 246, 0.8);
-  font-size: 1.2rem;
+  border: 1px solid rgba(102, 126, 234, 0.3);
+  border-radius: 6px;
+  background: rgba(243, 244, 246, 0.9);
+  font-size: 1.3rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  box-shadow:
+    0 0 5px rgba(102, 126, 234, 0.15),
+    inset 0 0 5px rgba(255, 255, 255, 0.5);
 }
 
-/* Theme button hover - bright glow */
+/* Theme button hover */
 .theme-toggle:hover {
   background: linear-gradient(
     135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(139, 92, 246, 0.1) 100%
+    rgba(102, 126, 234, 0.15) 0%,
+    rgba(139, 92, 246, 0.15) 100%
   );
+  border-color: #667eea;
   transform: translateY(-2px) rotate(20deg);
-  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+  box-shadow:
+    0 0 15px rgba(102, 126, 234, 0.4),
+    0 0 25px rgba(102, 126, 234, 0.2),
+    0 4px 10px rgba(102, 126, 234, 0.15);
 }
 
-/* Dark mode styles */
+/* Dark mode styles - CYBERPUNK NEON */
 .navbar.dark {
-  background: rgba(26, 26, 46, 0.95);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
-  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.1);
+  background: rgba(10, 14, 39, 0.95);
+  backdrop-filter: blur(15px);
+  border-bottom: 2px solid rgba(0, 212, 255, 0.3);
+  box-shadow:
+    0 4px 20px rgba(0, 212, 255, 0.15),
+    0 0 40px rgba(0, 212, 255, 0.1),
+    inset 0 -2px 10px rgba(0, 212, 255, 0.1);
+  position: relative;
 }
 
+/* Animated bottom border glow */
+.navbar.dark::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 212, 255, 0.8) 20%,
+    rgba(0, 212, 255, 1) 50%,
+    rgba(0, 212, 255, 0.8) 80%,
+    transparent 100%
+  );
+  animation: borderScan 3s ease-in-out infinite;
+}
+
+@keyframes borderScan {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+/* NEON Logo with strong glow */
 .navbar.dark .nav-logo {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #00d4ff 0%, #b968ff 50%, #00ff88 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6))
+          drop-shadow(0 0 15px rgba(0, 212, 255, 0.4));
+  animation: logoGlow 2s ease-in-out infinite;
+  text-transform: uppercase;
 }
 
+@keyframes logoGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(0, 212, 255, 0.6))
+            drop-shadow(0 0 15px rgba(0, 212, 255, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px rgba(0, 212, 255, 0.8))
+            drop-shadow(0 0 20px rgba(0, 212, 255, 0.6));
+  }
+}
+
+/* NEON Nav Links - Cyberpunk Style */
 .navbar.dark .nav-link {
-  color: #e2e8f0;
-  background-color: rgba(51, 51, 51, 0.5);
+  color: #00d4ff;
+  background: rgba(10, 14, 39, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 6px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 0 10px rgba(0, 212, 255, 0.2),
+    inset 0 0 10px rgba(0, 212, 255, 0.05);
+}
+
+/* Animated background on hover */
+.navbar.dark .nav-link::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 212, 255, 0.2) 50%,
+    transparent 100%
+  );
+  transition: left 0.5s ease;
+}
+
+.navbar.dark .nav-link:hover::before {
+  left: 100%;
 }
 
 .navbar.dark .nav-link:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(139, 92, 246, 0.2) 100%
-  );
-  color: #60a5fa;
-  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+  background: rgba(0, 212, 255, 0.1);
+  border-color: #00d4ff;
+  color: #00ffff;
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 15px rgba(0, 212, 255, 0.5),
+    0 0 30px rgba(0, 212, 255, 0.3),
+    0 4px 15px rgba(0, 212, 255, 0.2),
+    inset 0 0 15px rgba(0, 212, 255, 0.1);
 }
 
+/* Active link - strong NEON glow */
 .navbar.dark .nav-link.active {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  color: white;
-  box-shadow: 0 0 4px #3b82f6, 0 0 8px #3b82f6;
+  background: rgba(0, 212, 255, 0.15);
+  border: 2px solid #00d4ff;
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow:
+    0 0 20px rgba(0, 212, 255, 0.8),
+    0 0 40px rgba(0, 212, 255, 0.5),
+    0 0 60px rgba(0, 212, 255, 0.3),
+    inset 0 0 20px rgba(0, 212, 255, 0.2);
+  animation: activeLinkPulse 2s ease-in-out infinite;
 }
 
+@keyframes activeLinkPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(0, 212, 255, 0.8),
+      0 0 40px rgba(0, 212, 255, 0.5),
+      0 0 60px rgba(0, 212, 255, 0.3),
+      inset 0 0 20px rgba(0, 212, 255, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 25px rgba(0, 212, 255, 1),
+      0 0 50px rgba(0, 212, 255, 0.7),
+      0 0 80px rgba(0, 212, 255, 0.4),
+      inset 0 0 25px rgba(0, 212, 255, 0.3);
+  }
+}
+
+/* Theme toggle - NEON style */
 .navbar.dark .theme-toggle {
-  background-color: rgba(51, 51, 51, 0.5);
-  color: white;
+  background: rgba(10, 14, 39, 0.8);
+  border: 1px solid rgba(185, 104, 255, 0.4);
+  color: #b968ff;
+  border-radius: 6px;
+  box-shadow:
+    0 0 10px rgba(185, 104, 255, 0.3),
+    inset 0 0 10px rgba(185, 104, 255, 0.05);
+  font-size: 1.3rem;
+  transition: all 0.3s ease;
 }
 
 .navbar.dark .theme-toggle:hover {
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(139, 92, 246, 0.2) 100%
-  );
-  box-shadow: 0 0 3px #3b82f6, 0 0 6px #3b82f6;
+  background: rgba(185, 104, 255, 0.15);
+  border-color: #b968ff;
+  color: #d4a0ff;
+  transform: translateY(-2px) rotate(20deg);
+  box-shadow:
+    0 0 20px rgba(185, 104, 255, 0.6),
+    0 0 40px rgba(185, 104, 255, 0.4),
+    0 4px 15px rgba(185, 104, 255, 0.3),
+    inset 0 0 15px rgba(185, 104, 255, 0.1);
 }
