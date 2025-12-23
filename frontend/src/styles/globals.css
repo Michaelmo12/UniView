@@ -22,77 +22,7 @@ body {
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
 
-  /* Light mode - subtle grid pattern with tech feel */
-  background:
-    /* Subtle grid pattern - vertical lines */
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent calc(100px - 1px),
-      rgba(102, 126, 234, 0.05) calc(100px - 1px),
-      rgba(102, 126, 234, 0.05) 100px
-    ),
-    /* Subtle grid pattern - horizontal lines */
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent calc(100px - 1px),
-      rgba(102, 126, 234, 0.05) calc(100px - 1px),
-      rgba(102, 126, 234, 0.05) 100px
-    ),
-    /* רקע עם מעבר צבעים חלק */
-    linear-gradient(135deg, #f5f7fa 0%, #e3e9f5 50%, #c3cfe2 100%);
-
-    /* הגדרות רקע איזה גודל כל שכבה לפי הסדר ש */
-  background-size: 100px 100px, 100px 100px, 100% 100%;
-  background-position: 0 0, 0 0, 0 0;
-  /* רקע קבוע בעת גלילה */
-  background-attachment: fixed;
-
-  color: #2d3748;
-  transition: background 0.3s ease, color 0.3s ease;
-  overflow-x: hidden;
-  position: relative;
-}
-
-/* Subtle animated grid pulse for light mode */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent calc(100px - 1px),
-      rgba(102, 126, 234, 0.08) calc(100px - 1px),
-      rgba(102, 126, 234, 0.08) 100px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent calc(100px - 1px),
-      rgba(102, 126, 234, 0.08) calc(100px - 1px),
-      rgba(102, 126, 234, 0.08) 100px
-    );
-  background-size: 100px 100px, 100px 100px;
-  opacity: 0;
-  animation: lightGridPulse 6s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes lightGridPulse {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 0.4; }
-}
-
-/* ===== DARK MODE - CYBERPUNK GRID BACKGROUND ===== */
-body.dark {
-  /* Dark blue/navy base matching the image */
+  /* Cyberpunk grid background */
   background:
     /* Grid pattern - vertical lines */
     repeating-linear-gradient(
@@ -118,13 +48,12 @@ body.dark {
   background-attachment: fixed;
 
   color: #e2e8f0;
-
-  /* Add subtle animated glow effect */
+  overflow-x: hidden;
   position: relative;
 }
 
 /* Animated grid glow effect */
-body.dark::before {
+body::before {
   content: '';
   position: fixed;
   top: 0;
@@ -165,18 +94,8 @@ body.dark::before {
   z-index: 1; /* Above the grid background */
 }
 
-/* ===== PAGE HEADINGS (Light Mode) ===== */
+/* ===== PAGE HEADINGS ===== */
 .page-content h1 {
-  font-size: 2.5rem;
-  margin-bottom: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ===== PAGE HEADINGS (Dark Mode - NEON GLOW) ===== */
-body.dark .page-content h1 {
   font-size: 2.5rem;
   margin-bottom: 1rem;
   font-weight: 700;
@@ -209,15 +128,10 @@ body.dark .page-content h1 {
   }
 }
 
-/* ===== PAGE PARAGRAPHS (Light Mode) ===== */
+/* ===== PAGE PARAGRAPHS ===== */
 .page-content p {
   font-size: 1.125rem;
   line-height: 1.75;
-  color: #4a5568;
-}
-
-/* ===== PAGE PARAGRAPHS (Dark Mode - Enhanced) ===== */
-body.dark .page-content p {
   color: #cbd5e0;
   text-shadow: 0 0 5px rgba(203, 213, 224, 0.1);
 }
