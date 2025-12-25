@@ -1,90 +1,260 @@
-/* ===== LIGHT MODE (Default) ===== */
-body {
-  margin: 0; /* Remove default browser margin */
-  padding: 0; /* Add this to ensure no padding */
+:root {
+  /* Neon Colors from image */
+  --neon-blue: #00d4ff;
+  --neon-green: #00ff88;
+  --neon-purple: #b968ff;
+  --neon-orange: #ff8844;
+  --neon-yellow: #ffeb3b;
+  --neon-pink: #ff00ff;
 
-  /* Font stack - tries each font in order until one is available */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
-    sans-serif;
+  /* Dark Background Colors */
+  --bg-dark-primary: #0a0e27;
+  --bg-dark-secondary: #0f1535;
+  --bg-dark-tertiary: #1a1f3e;
 
-  /* Gradient background - starts light blue (#f5f7fa) and fades to gray-blue (#c3cfe2) */
-  /* 135deg = diagonal from top-left to bottom-right */
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-
-  /* Text color - dark gray for readability */
-  color: #2d3748;
-
-  /* Smooth transition when switching themes (0.3 seconds) */
-  transition: background 0.3s ease, color 0.3s ease;
-
-  overflow-x: hidden; /* Prevent horizontal scrolling */
+  /* Grid Colors */
+  --grid-line-color: rgba(0, 212, 255, 0.15);
+  --grid-line-glow: rgba(0, 212, 255, 0.3);
 }
 
-/* ===== DARK MODE ===== */
-/* When body has class "dark", these styles override the light mode */
-body.dark {
-  /* Dark gradient - deep blue/purple theme */
-  /* Goes from very dark blue (#0f0f23) to slightly lighter dark blue (#1a1a2e) */
-  background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
 
-  /* Light gray text for readability on dark background */
+  /* Cyberpunk grid background */
+  background:
+    /* Grid pattern - vertical lines */
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(100px - 1px),
+      var(--grid-line-color) calc(100px - 1px),
+      var(--grid-line-color) 100px
+    ),
+    /* Grid pattern - horizontal lines */
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent calc(100px - 1px),
+      var(--grid-line-color) calc(100px - 1px),
+      var(--grid-line-color) 100px
+    ),
+    /* Base dark gradient */
+    linear-gradient(180deg, var(--bg-dark-primary) 0%, var(--bg-dark-secondary) 50%, var(--bg-dark-tertiary) 100%);
+
+  background-size: 100px 100px, 100px 100px, 100% 100%;
+  background-position: 0 0, 0 0, 0 0;
+  background-attachment: fixed;
+
   color: #e2e8f0;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Animated grid glow effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(100px - 1px),
+      var(--grid-line-glow) calc(100px - 1px),
+      var(--grid-line-glow) 100px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent calc(100px - 1px),
+      var(--grid-line-glow) calc(100px - 1px),
+      var(--grid-line-glow) 100px
+    );
+  background-size: 100px 100px, 100px 100px;
+  opacity: 0;
+  animation: gridPulse 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes gridPulse {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.3; }
 }
 
 /* ===== PAGE CONTENT CONTAINER ===== */
-/* Class you add to page wrappers (like <div className="page-content">) */
 .page-content {
-  /* Height = Full screen (100vh) minus navbar (60px) */
-  /* calc() does the math: 100vh - 60px */
-  /*min-height: calc(100vh - 60px);*/
-
-  /* Space around content: 32px (2rem × 16px = 32px) */
   padding: 2rem;
+  position: relative;
+  z-index: 1; /* Above the grid background */
 }
 
-/* ===== PAGE HEADINGS (Light Mode) ===== */
+/* ===== PAGE HEADINGS ===== */
 .page-content h1 {
-  /* Large heading size: 2.5 × 16px = 40px */
   font-size: 2.5rem;
-
-  /* Space below heading */
   margin-bottom: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 
-  /* Gradient text effect - purple to pink */
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-
-  /* These 3 lines make the gradient apply to TEXT instead of background */
-  -webkit-background-clip: text; /* Clip background to text shape (Safari) */
-  -webkit-text-fill-color: transparent; /* Make text transparent so gradient shows */
-  background-clip: text; /* Standard version (other browsers) */
-}
-
-/* ===== PAGE HEADINGS (Dark Mode) ===== */
-/* When in dark mode, headings get different gradient colors */
-body.dark .page-content h1 {
-  /* Brighter blue-purple gradient for dark backgrounds */
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-
-  /* Same gradient-as-text technique */
+  /* Neon gradient text */
+  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+
+  /* Strong neon glow effect */
+  filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5))
+          drop-shadow(0 0 20px rgba(0, 212, 255, 0.3))
+          drop-shadow(0 0 30px rgba(0, 212, 255, 0.2));
+
+  animation: neonFlicker 3s ease-in-out infinite;
 }
 
-/* ===== PAGE PARAGRAPHS (Light Mode) ===== */
+@keyframes neonFlicker {
+  0%, 100% {
+    filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5))
+            drop-shadow(0 0 20px rgba(0, 212, 255, 0.3))
+            drop-shadow(0 0 30px rgba(0, 212, 255, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.7))
+            drop-shadow(0 0 25px rgba(0, 212, 255, 0.5))
+            drop-shadow(0 0 35px rgba(0, 212, 255, 0.3));
+  }
+}
+
+/* ===== PAGE PARAGRAPHS ===== */
 .page-content p {
-  /* Slightly larger than default: 1.125 × 16px = 18px */
   font-size: 1.125rem;
-
-  /* Line height for readability - 1.75 × font size */
   line-height: 1.75;
-
-  /* Medium gray text */
-  color: #4a5568;
+  color: #cbd5e0;
+  text-shadow: 0 0 5px rgba(203, 213, 224, 0.1);
 }
 
-/* ===== PAGE PARAGRAPHS (Dark Mode) ===== */
-body.dark .page-content p {
-  /* Lighter gray for readability on dark background */
-  color: #cbd5e0;
+/* ===== NEON BOX COMPONENT STYLES ===== */
+/* Base neon box class for stream cards and other containers */
+.neon-box {
+  position: relative;
+  background: rgba(10, 14, 39, 0.7);
+  border: 2px solid var(--neon-blue);
+  border-radius: 12px;
+  padding: 1.5rem;
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 0 10px var(--neon-blue),
+    0 0 20px rgba(0, 212, 255, 0.5),
+    inset 0 0 20px rgba(0, 212, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.neon-box:hover {
+  transform: translateY(-5px);
+  box-shadow:
+    0 0 20px var(--neon-blue),
+    0 0 40px rgba(0, 212, 255, 0.6),
+    0 0 60px rgba(0, 212, 255, 0.3),
+    inset 0 0 30px rgba(0, 212, 255, 0.1);
+  border-color: var(--neon-blue);
+}
+
+/* Different neon colors for variety */
+.neon-box.green {
+  border-color: var(--neon-green);
+  box-shadow:
+    0 0 10px var(--neon-green),
+    0 0 20px rgba(0, 255, 136, 0.5),
+    inset 0 0 20px rgba(0, 255, 136, 0.05);
+}
+
+.neon-box.green:hover {
+  box-shadow:
+    0 0 20px var(--neon-green),
+    0 0 40px rgba(0, 255, 136, 0.6),
+    0 0 60px rgba(0, 255, 136, 0.3),
+    inset 0 0 30px rgba(0, 255, 136, 0.1);
+}
+
+.neon-box.purple {
+  border-color: var(--neon-purple);
+  box-shadow:
+    0 0 10px var(--neon-purple),
+    0 0 20px rgba(185, 104, 255, 0.5),
+    inset 0 0 20px rgba(185, 104, 255, 0.05);
+}
+
+.neon-box.purple:hover {
+  box-shadow:
+    0 0 20px var(--neon-purple),
+    0 0 40px rgba(185, 104, 255, 0.6),
+    0 0 60px rgba(185, 104, 255, 0.3),
+    inset 0 0 30px rgba(185, 104, 255, 0.1);
+}
+
+.neon-box.orange {
+  border-color: var(--neon-orange);
+  box-shadow:
+    0 0 10px var(--neon-orange),
+    0 0 20px rgba(255, 136, 68, 0.5),
+    inset 0 0 20px rgba(255, 136, 68, 0.05);
+}
+
+.neon-box.orange:hover {
+  box-shadow:
+    0 0 20px var(--neon-orange),
+    0 0 40px rgba(255, 136, 68, 0.6),
+    0 0 60px rgba(255, 136, 68, 0.3),
+    inset 0 0 30px rgba(255, 136, 68, 0.1);
+}
+
+.neon-box.yellow {
+  border-color: var(--neon-yellow);
+  box-shadow:
+    0 0 10px var(--neon-yellow),
+    0 0 20px rgba(255, 235, 59, 0.5),
+    inset 0 0 20px rgba(255, 235, 59, 0.05);
+}
+
+.neon-box.yellow:hover {
+  box-shadow:
+    0 0 20px var(--neon-yellow),
+    0 0 40px rgba(255, 235, 59, 0.6),
+    0 0 60px rgba(255, 235, 59, 0.3),
+    inset 0 0 30px rgba(255, 235, 59, 0.1);
+}
+
+/* Corner accents removed per user request */
+
+/* Status label styling for object tracking */
+.status-label {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.status-label.tracking {
+  color: var(--neon-green);
+}
+
+.status-label.idle {
+  color: var(--neon-orange);
+}
+
+.status-label.offline {
+  color: #666;
+}
+
+.status-label.alert {
+  color: var(--neon-pink);
 }

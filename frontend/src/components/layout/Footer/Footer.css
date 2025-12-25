@@ -1,11 +1,39 @@
-/* Footer - slim and at bottom */
+/* ===== CYBERPUNK NEON FOOTER ===== */
 .footer {
   height: 40px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(229, 231, 235, 0.8);
-  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.05);
+  background: rgba(10, 14, 39, 0.95);
+  backdrop-filter: blur(15px);
+  border-top: 2px solid rgba(0, 212, 255, 0.3);
+  box-shadow:
+    0 -4px 20px rgba(0, 212, 255, 0.15),
+    0 0 40px rgba(0, 212, 255, 0.1),
+    inset 0 2px 10px rgba(0, 212, 255, 0.1);
   margin-top: auto;
+  position: relative;
+}
+
+/* Animated top border glow */
+.footer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 255, 136, 0.8) 20%,
+    rgba(0, 255, 136, 1) 50%,
+    rgba(0, 255, 136, 0.8) 80%,
+    transparent 100%
+  );
+  animation: footerBorderScan 4s ease-in-out infinite;
+}
+
+@keyframes footerBorderScan {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .footer-container {
@@ -21,54 +49,46 @@
 .footer-text {
   margin: 0;
   font-size: 0.875rem;
-  color: #6b7280;  /* Gray color for "Created by" */
+  color: #cbd5e0;
+  text-shadow: 0 0 5px rgba(203, 213, 224, 0.2);
 }
 
+/* Creator name with NEON glow */
 .creator-name {
-  font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-weight: 700;
+  letter-spacing: 1px;
+  background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 5px rgba(0, 255, 136, 0.5))
+          drop-shadow(0 0 10px rgba(0, 255, 136, 0.3));
 }
 
+/* Email link with NEON effect */
 .footer-email {
   font-size: 0.875rem;
-  color: #6b7280;
+  color: #00d4ff;
   text-decoration: none;
-  transition: all 0.3s ease;
   padding: 0.25rem 0.75rem;
   border-radius: 6px;
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  background: rgba(10, 14, 39, 0.8);
+  box-shadow:
+    0 0 8px rgba(0, 212, 255, 0.2),
+    inset 0 0 8px rgba(0, 212, 255, 0.05);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
 }
 
 .footer-email:hover {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-}
-
-/* Dark mode */
-.footer.dark {
-  background: rgba(26, 26, 46, 0.95);
-  border-top: 1px solid rgba(59, 130, 246, 0.2);
-  box-shadow: 0 -1px 3px rgba(59, 130, 246, 0.1);
-}
-
-.footer.dark .footer-text {
-  color: #9ca3af;  /* Light gray in dark mode */
-}
-
-.footer.dark .creator-name {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.footer.dark .footer-email {
-  color: #9ca3af;
-}
-
-.footer.dark .footer-email:hover {
-  color: #60a5fa;
-  background: rgba(59, 130, 246, 0.2);
+  color: #00ffff;
+  background: rgba(0, 212, 255, 0.1);
+  border-color: #00d4ff;
+  box-shadow:
+    0 0 15px rgba(0, 212, 255, 0.5),
+    0 0 25px rgba(0, 212, 255, 0.3),
+    inset 0 0 12px rgba(0, 212, 255, 0.1);
+  transform: translateY(-2px);
 }

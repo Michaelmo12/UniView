@@ -1,12 +1,9 @@
 import { NavLink } from "react-router-dom";
 import "./Navigation.css";
-import { useTheme } from "../../../context/ThemeContext";
 
 function Navigation() {
-  const { isDark, toggleTheme } = useTheme();
-
   return (
-    <nav className={`navbar ${isDark ? "dark" : ""}`}>
+    <nav className="navbar">
       <div className="nav-container">
         <div className="nav-logo">UniView</div>
 
@@ -21,10 +18,6 @@ function Navigation() {
             Sign In
           </NavLink>
         </div>
-
-        <button className="theme-toggle" onClick={toggleTheme}>
-          {isDark ? "☀️" : "🌙"}
-        </button>
       </div>
     </nav>
   );

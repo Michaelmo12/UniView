@@ -1,11 +1,8 @@
-import { useTheme } from "../../../context/ThemeContext";
 import "./Footer.css";
 
 function Footer() {
-  const { isDark } = useTheme();
-
   return (
-    <footer className={`footer ${isDark ? "dark" : ""}`}>
+    <footer className="footer">
       <div className="footer-container">
         <p className="footer-text">
           Created by <span className="creator-name">Michael Mordehai</span>
