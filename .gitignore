@@ -1,0 +1,13 @@
+# Claude Code
+.claude/
+
+# Project files
+MATRIX_30x30/
+
+# PDFs
+*.pdf
+
+# Backend virtual environment
+backend/venv/
+backend/__pycache__/
+backend/*.pyc
