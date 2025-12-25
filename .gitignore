@@ -16,6 +16,10 @@ backend/build/
 .env.test.local
 .env.production.local
 
+backend/venv
+MATRIX_30x30/
+מיכאל_מורדכי_216295238_UniView.pdf
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
