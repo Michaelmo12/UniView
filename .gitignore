@@ -7,6 +7,8 @@ MATRIX_30x30/
 
 # Backend virtual environment
 backend/venv/
+backend/mock_drone_system
+backend/stream_receiver
 backend/__pycache__/
 backend/*.pyc
 

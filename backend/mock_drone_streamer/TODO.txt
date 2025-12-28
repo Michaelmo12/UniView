@@ -1,0 +1,7 @@
+MOCK DRONE STREAMER - TODO
+
+[ ] Modularize drone_worker() function
+    - Extract NetworkManager class (socket, connection handling)
+    - Extract DroneStatistics class (frames sent/failed, bytes tracking)
+    - Extract DroneWorker class (main worker logic)
+    - Break 200+ line function into focused, testable components
