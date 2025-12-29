@@ -1,24 +1,4 @@
-# Claude Code
-.claude/
-
-# Project files
+# Project-specific files and folders
 MATRIX_30x30/
-מיכאל_מורדכי_216295238_UniView.pdf
-
-# Backend virtual environment
-backend/venv/
-backend/mock_drone_system
-backend/stream_receiver
-backend/__pycache__/
-backend/*.pyc
-
-# Frontend dependencies and build
-frontend/node_modules/
-frontend/dist/
-
-# Environment variables
-.env
-.env.local
-
-# Logs
-*.log
+venv/
+.claude/
