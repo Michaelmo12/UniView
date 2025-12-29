@@ -5,3 +5,5 @@ MOCK DRONE STREAMER - TODO
     - Extract DroneStatistics class (frames sent/failed, bytes tracking)
     - Extract DroneWorker class (main worker logic)
     - Break 200+ line function into focused, testable components
+
+[ ] maybe add rtsp
