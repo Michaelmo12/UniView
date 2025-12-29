@@ -11,10 +11,6 @@ import sys
 import threading
 import time
 
-# Third-party imports
-import cv2
-import numpy as np
-
 # Local imports
 from config import DatasetConfig, NetworkConfig, ServerConfig
 from utils.calibration_loader import load_extrinsic_binary, load_intrinsic_text
@@ -222,7 +218,7 @@ def main():
     print("=" * 70)
     print("MOCK DRONE STREAMER SERVICE")
     print("=" * 70)
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Dataset: {DatasetConfig.DATASET_PATH}")
     print(f"  Drones: {ServerConfig.NUM_DRONES}")
     print(f"  Ports: {NetworkConfig.get_port_range(ServerConfig.NUM_DRONES)}")
