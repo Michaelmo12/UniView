@@ -87,11 +87,23 @@ body::before {
   50% { opacity: 0.3; }
 }
 
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* ===== PAGE CONTENT CONTAINER ===== */
 .page-content {
   padding: 2rem;
   position: relative;
   z-index: 1; /* Above the grid background */
+  animation: slideUp 0.5s ease-out;
 }
 
 /* ===== PAGE HEADINGS ===== */
@@ -257,4 +269,47 @@ body::before {
 
 .status-label.alert {
   color: var(--neon-pink);
+}
+
+/* ===== LINKS ===== */
+a {
+  color: var(--neon-blue);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+a:hover {
+  color: var(--neon-pink);
+  text-decoration: underline;
+}
+
+.link-accent {
+  color: var(--neon-blue);
+  font-weight: 500;
+}
+
+.link-accent:hover {
+  color: var(--neon-pink);
+}
+
+/* ===== FORM LAYOUTS ===== */
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.form-row > * {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+  }
 }
