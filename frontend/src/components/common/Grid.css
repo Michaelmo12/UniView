@@ -1,0 +1,10 @@
+.grid-container {
+  display: grid;
+  margin-top: 2rem;
+}
+
+@media (max-width: 768px) {
+  .grid-container {
+    grid-template-columns: 1fr !important;
+  }
+}
