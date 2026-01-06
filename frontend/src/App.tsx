@@ -6,13 +6,15 @@ import "./styles/globals.css";
 
 function App() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-      <BrowserRouter>
+    <BrowserRouter>
+      <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <Navigation />
+        <main style={{ flex: 1 }}>
           <AppRoutes />
+        </main>
         <Footer />
-      </BrowserRouter>
-    </div>
+      </div>
+    </BrowserRouter>
   );
 }
 
