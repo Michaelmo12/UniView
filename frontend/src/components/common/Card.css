@@ -41,6 +41,7 @@
   /* Content goes here */
 }
 
+/* Responsive design only work on screens 480px wide or less */
 @media (max-width: 480px) {
   .card {
     padding: 30px 20px;
