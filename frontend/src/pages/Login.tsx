@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AuthCard, Input, Button, Checkbox } from "../components/common";
+import "./Login.css";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -9,7 +10,9 @@ function Login() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Logic will be added later
-    console.log("Login attempt:", { email, password, rememberMe });
+    console.log("Login attempt:", { email, rememberMe });
+    // TODO: Send to API - password will be sent securely
+    // Example: await login({ email, password, rememberMe });
   };
 
   return (
@@ -39,13 +42,13 @@ function Login() {
           required
         />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px' }}>
+        <div className="login-form-row">
           <Checkbox
             label="Remember me"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
           />
-          <a href="#" style={{ color: 'var(--neon-pink)' }}>
+          <a href="#" className="login-forgot-link">
             Forgot password?
           </a>
         </div>

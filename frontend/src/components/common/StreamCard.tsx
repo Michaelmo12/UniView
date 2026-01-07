@@ -11,6 +11,7 @@ interface StreamCardProps {
 }
 
 export default function StreamCard({
+  id,
   title,
   detections,
   isActive,
@@ -18,7 +19,7 @@ export default function StreamCard({
   onViewStream
 }: StreamCardProps) {
   return (
-    <div className={`stream-card neon-box ${color}`}>
+    <div className={`stream-card neon-box ${color}`} data-stream-id={id}>
       {/* Status Header */}
       <div className="stream-card-header">
         <span className={`status-label ${detections > 0 ? 'tracking' : 'idle'}`}>

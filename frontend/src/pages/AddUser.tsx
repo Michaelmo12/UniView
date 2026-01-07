@@ -10,14 +10,29 @@ function AddUser() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate password match
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+
+    // Validate password strength (optional)
+    if (password.length < 6) {
+      alert("Password must be at least 6 characters long!");
+      return;
+    }
+
     // Admin creates user - Logic will be added later
     console.log("Admin creating user:", {
       fullName,
       email,
-      password,
-      confirmPassword,
       role,
+      // NEVER log passwords!
     });
+
+    // TODO: Send to API - password will be hashed on backend
+    // Example: await createUser({ fullName, email, password, role });
   };
 
   return (
