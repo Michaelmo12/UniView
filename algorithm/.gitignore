@@ -1,12 +1,10 @@
-datasets/VisDrone/labels
-datasets/VisDrone/images
-datasets/VisDrone/backups
+datasets/VisDrone/path
 
 models/pretrained
 models/trained
 *.pt
 
-*.log
+*.log 
 __pycache__/
 *.pyc
 
