@@ -1,0 +1,58 @@
+.stream-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.stream-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.stream-status {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.stream-status.active {
+  color: var(--neon-green);
+}
+
+.stream-status.inactive {
+  color: #ff0000;
+}
+
+.stream-card-title {
+  color: var(--neon-blue);
+  font-size: 1.25rem;
+  margin: 0 0 1rem 0;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.stream-card-info {
+  color: #cbd5e0;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.info-value {
+  color: var(--neon-green);
+}
+
+.info-value.inactive {
+  color: #ff0000;
+}
+
+.stream-card-button {
+  margin-top: 1rem;
+  width: 100%;
+}

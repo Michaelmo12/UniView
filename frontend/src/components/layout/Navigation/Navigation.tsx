@@ -14,8 +14,8 @@ function Navigation() {
           <NavLink to="/login" className="nav-link">
             Login
           </NavLink>
-          <NavLink to="/signin" className="nav-link">
-            Sign In
+          <NavLink to="/admin/add-user" className="nav-link">
+            Add User
           </NavLink>
         </div>
       </div>
