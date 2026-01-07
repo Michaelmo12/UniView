@@ -38,10 +38,10 @@
 }
 
 .card-content {
-  /* Content goes here */
+  /* Main body area of the card (text, forms, and actions). Add layout and spacing styles here. */
 }
 
-/* Responsive design only work on screens 480px wide or less */
+/* Responsive design only works on screens 480px wide or less */
 @media (max-width: 480px) {
   .card {
     padding: 30px 20px;

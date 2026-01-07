@@ -1,0 +1,16 @@
+.login-form-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.login-forgot-link {
+  color: var(--neon-pink);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.login-forgot-link:hover {
+  opacity: 0.8;
+}
