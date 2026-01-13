@@ -1,7 +1,3 @@
-"""
-UniView API Gateway
-Simple entry point - just run: python main.py
-"""
 import uvicorn
 from src.config import settings
 

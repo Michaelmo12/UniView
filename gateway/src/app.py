@@ -1,6 +1,3 @@
-"""
-UniView API Gateway - FastAPI Application
-"""
 from fastapi import FastAPI
 from src.core import setup_middleware
 from src.api import router

@@ -1,0 +1,8 @@
+TO DO: 
+HTTP*S*
+short expiration
+httpOnly Cookies
+IP validation (optional)
+refresh token (must in furture)
+
+in routes alot of duplicated code - needs fix.

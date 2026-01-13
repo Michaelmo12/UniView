@@ -1,36 +1,35 @@
-"""
-API Routes for the Gateway
-Defines all API endpoints
-"""
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+
+# Pydantic models for request/response validation
 from pydantic import BaseModel
 from typing import Dict, Any
+
+# HTTP client to make requests to backend
 import httpx
-from src.core.auth import create_jwt, get_current_user
+from src.core.auth import create_jwt, get_current_user, get_admin_user, oauth2_scheme
+from src.core import add_token_to_blacklist
 from src.config import settings
+from jose import jwt as jose_jwt
 
 
 router = APIRouter()
 
 
+# todo move this basemodels to a separate file models.py
 class LoginRequest(BaseModel):
     """Login request model"""
+
     email: str
     password: str
 
 
 class LoginResponse(BaseModel):
     """Login response model"""
+
     access_token: str
     token_type: str = "bearer"
-    user: Dict[str, Any]
-
-
-class ProtectedResponse(BaseModel):
-    """Protected route response model"""
-    message: str
     user: Dict[str, Any]
 
 
@@ -44,11 +43,12 @@ async def login(credentials: LoginRequest):
     """
     try:
         # Forward credentials to backend for validation
+        # closes the client after use with async with
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{settings.BACKEND_URL}/auth/login",
                 json={"email": credentials.email, "password": credentials.password},
-                timeout=10.0
+                timeout=10.0,
             )
 
             if response.status_code == 200:
@@ -58,16 +58,12 @@ async def login(credentials: LoginRequest):
                 user_data = {
                     "user_id": user["id"],
                     "email": user["email"],
-                    "role": user["role"]
+                    "role": user["role"],
                 }
 
                 token = create_jwt(user_data)
 
-                return LoginResponse(
-                    access_token=token,
-                    token_type="bearer",
-                    user=user
-                )
+                return LoginResponse(access_token=token, token_type="bearer", user=user)
             elif response.status_code == 401:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -77,44 +73,79 @@ async def login(credentials: LoginRequest):
             else:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Backend authentication error"
+                    detail="Backend authentication error",
                 )
 
     except httpx.RequestError as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Backend service unavailable: {str(e)}"
+            detail=f"Backend service unavailable: {str(e)}",
         )
 
 
-@router.get("/api/protected", response_model=ProtectedResponse)
-async def protected_route(current_user: Dict = Depends(get_current_user)):
+# must run get_current_user first to extract token from header
+@router.post("/api/logout")
+async def logout(
+    current_user: Dict = Depends(get_current_user), token: str = Depends(oauth2_scheme)
+):
     """
-    Example protected route that requires JWT authentication
+    Logout user by blacklisting their JWT token
 
     Args:
-        current_user: User info from JWT token (injected by dependency)
+        current_user: Current authenticated user
+        token: JWT token to blacklist
 
     Returns:
-        Protected data accessible only to authenticated users
+        Success message
     """
-    return ProtectedResponse(
-        message="You have access to this protected resource",
-        user=current_user
-    )
+    try:
+        # Decode token to get expiration time
+        payload = jose_jwt.decode(
+            token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
+        )
+
+        # Get expiration datetime for SQLite
+        exp_timestamp = payload.get("exp")
+        if exp_timestamp:
+            expires_at = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
+
+            # Only blacklist if token hasn't expired yet
+            if expires_at > datetime.now(timezone.utc):
+                add_token_to_blacklist(token, expires_at)
+
+        return {"message": "Successfully logged out", "user": current_user["email"]}
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Logout failed: {str(e)}",
+        )
 
 
 @router.get("/health")
-async def health_check(response: Response):
+async def health():
+    return {
+        "status": "pass",
+        "service": "gateway",
+        "version": "1.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.get("/health/ready")
+async def readiness_check(response: Response):
     """
-    Dynamic health check endpoint
-    Tests gateway functionality and backend connectivity
+    Readiness probe - checks if gateway can handle traffic
+
+    Tests critical dependencies like backend connectivity.
+    Returns 503 if dependencies are unhealthy.
+    Used by load balancers to determine if traffic should be routed here.
     """
     health_status = {
-        "status": "healthy",
+        "status": "pass",
         "service": "gateway",
-        "timestamp": datetime.utcnow().isoformat(),
-        "checks": {}
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "checks": {},
     }
 
     all_healthy = True
@@ -124,116 +155,70 @@ async def health_check(response: Response):
         start_time = time.time()
         async with httpx.AsyncClient() as client:
             backend_response = await client.get(
-                f"{settings.BACKEND_URL}/health",
-                timeout=5.0
+                f"{settings.BACKEND_URL}/health", timeout=5.0
             )
 
         backend_time = round((time.time() - start_time) * 1000, 2)
 
         if backend_response.status_code == 200:
             health_status["checks"]["backend"] = {
-                "status": "healthy",
+                "status": "pass",
                 "response_time_ms": backend_time,
-                "url": settings.BACKEND_URL
+                "url": settings.BACKEND_URL,
             }
         else:
             all_healthy = False
             health_status["checks"]["backend"] = {
-                "status": "unhealthy",
+                "status": "fail",
                 "status_code": backend_response.status_code,
-                "url": settings.BACKEND_URL
+                "url": settings.BACKEND_URL,
             }
     except Exception as e:
         all_healthy = False
         health_status["checks"]["backend"] = {
-            "status": "unreachable",
+            "status": "fail",
             "error": str(e),
-            "url": settings.BACKEND_URL
-        }
-
-    # Check 2: JWT Configuration
-    try:
-        if settings.JWT_SECRET_KEY == "your-secret-key-change-this":
-            health_status["checks"]["jwt"] = {
-                "status": "warning",
-                "message": "Using default JWT secret key - change in production!"
-            }
-        else:
-            health_status["checks"]["jwt"] = {
-                "status": "healthy",
-                "algorithm": settings.JWT_ALGORITHM,
-                "expiration_minutes": settings.JWT_EXPIRATION_MINUTES
-            }
-    except Exception as e:
-        all_healthy = False
-        health_status["checks"]["jwt"] = {
-            "status": "unhealthy",
-            "error": str(e)
+            "url": settings.BACKEND_URL,
         }
 
     # Overall status
     if not all_healthy:
-        health_status["status"] = "unhealthy"
+        health_status["status"] = "fail"
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
 
     return health_status
 
 
-@router.get("/api/backend-health")
-async def backend_health_check(current_user: Dict = Depends(get_current_user)):
-    """
-    Check backend database service health (requires authentication)
-
-    Args:
-        current_user: User info from JWT token
-
-    Returns:
-        Backend service health status
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{settings.BACKEND_URL}/health", timeout=5.0)
-            return {
-                "gateway": "healthy",
-                "backend": response.json() if response.status_code == 200 else "unhealthy",
-                "backend_status_code": response.status_code
-            }
-    except Exception as e:
-        return {
-            "gateway": "healthy",
-            "backend": "unreachable",
-            "error": str(e)
-        }
-
-
 @router.post("/api/users")
-async def add_user(user_data: Dict[str, Any], current_user: Dict = Depends(get_current_user)):
+async def add_user(
+    user_data: Dict[str, Any], admin_user: Dict = Depends(get_admin_user)
+):
     """
     Add a new user (Admin only - proxied to backend)
 
     Args:
         user_data: User signup data
-        current_user: Current authenticated user (must be admin)
+        admin_user: Current authenticated admin user
 
     Returns:
         Created user data
-    """
-    # TODO: Add admin role check
-    # if current_user.get("role") != "admin":
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
+    Raises:
+        HTTPException: 403 if user is not an admin
+    """
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{settings.BACKEND_URL}/auth/add-user",
-                json=user_data,
-                timeout=10.0
+                f"{settings.BACKEND_URL}/auth/add-user", json=user_data, timeout=10.0
             )
-
+            # returns user data if created
             if response.status_code == 201:
                 return response.json()
             elif response.status_code == 400:
-                raise HTTPException(status_code=400, detail=response.json().get("detail", "Bad request"))
+                # Forward validation error from backend
+                raise HTTPException(
+                    status_code=400, detail=response.json().get("detail", "Bad request")
+                )
             else:
                 # Try to extract detailed error from backend response
                 error_detail = "Backend error"
@@ -243,12 +228,17 @@ async def add_user(user_data: Dict[str, Any], current_user: Dict = Depends(get_c
                         error_detail = backend_error["detail"]
                     elif isinstance(backend_error, str):
                         error_detail = backend_error
-                except:
+                except (ValueError, KeyError, TypeError):
+                    # If JSON parsing fails or structure is unexpected
                     error_detail = f"Backend error (status {response.status_code})"
-                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                raise HTTPException(
+                    status_code=response.status_code, detail=error_detail
+                )
 
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Backend service unavailable: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Backend service unavailable: {str(e)}"
+        )
 
 
 @router.get("/api/users/{user_id}")
@@ -256,18 +246,29 @@ async def get_user_by_id(user_id: int, current_user: Dict = Depends(get_current_
     """
     Get user by ID (proxied to backend)
 
+    Access control: Users can only view their own profile unless they are admin
+
     Args:
         user_id: User ID
         current_user: Current authenticated user
 
     Returns:
         User data
+
+    Raises:
+        HTTPException: 403 if user tries to view another user's profile (non-admin)
     """
+    # Check if user is viewing their own profile OR is admin
+    if current_user["user_id"] != user_id and current_user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own profile",
+        )
+
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{settings.BACKEND_URL}/users/{user_id}",
-                timeout=5.0
+                f"{settings.BACKEND_URL}/users/{user_id}", timeout=5.0
             )
 
             if response.status_code == 200:
@@ -283,31 +284,38 @@ async def get_user_by_id(user_id: int, current_user: Dict = Depends(get_current_
                         error_detail = backend_error["detail"]
                     elif isinstance(backend_error, str):
                         error_detail = backend_error
-                except:
+                except (ValueError, KeyError, TypeError):
+                    # If JSON parsing fails or structure is unexpected
                     error_detail = f"Backend error (status {response.status_code})"
-                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                raise HTTPException(
+                    status_code=response.status_code, detail=error_detail
+                )
 
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Backend service unavailable: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Backend service unavailable: {str(e)}"
+        )
 
 
 @router.get("/api/users/email/{email}")
-async def get_user_by_email(email: str, current_user: Dict = Depends(get_current_user)):
+async def get_user_by_email(email: str, admin_user: Dict = Depends(get_admin_user)):
     """
-    Get user by email (proxied to backend)
+    Get user by email (Admin only - proxied to backend)
 
     Args:
         email: User email
-        current_user: Current authenticated user
+        admin_user: Current authenticated admin user
 
     Returns:
         User data
+
+    Raises:
+        HTTPException: 403 if user is not an admin
     """
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{settings.BACKEND_URL}/users/email/{email}",
-                timeout=5.0
+                f"{settings.BACKEND_URL}/users/email/{email}", timeout=5.0
             )
 
             if response.status_code == 200:
@@ -323,35 +331,38 @@ async def get_user_by_email(email: str, current_user: Dict = Depends(get_current
                         error_detail = backend_error["detail"]
                     elif isinstance(backend_error, str):
                         error_detail = backend_error
-                except:
+                except (ValueError, KeyError, TypeError):
+                    # If JSON parsing fails or structure is unexpected
                     error_detail = f"Backend error (status {response.status_code})"
-                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                raise HTTPException(
+                    status_code=response.status_code, detail=error_detail
+                )
 
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Backend service unavailable: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Backend service unavailable: {str(e)}"
+        )
 
 
 @router.delete("/api/users/{user_id}")
-async def delete_user(user_id: int, current_user: Dict = Depends(get_current_user)):
+async def delete_user(user_id: int, admin_user: Dict = Depends(get_admin_user)):
     """
     Delete user by ID (Admin only - proxied to backend)
 
     Args:
         user_id: User ID to delete
-        current_user: Current authenticated user (must be admin)
+        admin_user: Current authenticated admin user
 
     Returns:
         No content
-    """
-    # TODO: Add admin role check
-    # if current_user.get("role") != "admin":
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
+    Raises:
+        HTTPException: 403 if user is not an admin
+    """
     try:
         async with httpx.AsyncClient() as client:
             response = await client.delete(
-                f"{settings.BACKEND_URL}/users/{user_id}",
-                timeout=5.0
+                f"{settings.BACKEND_URL}/users/{user_id}", timeout=5.0
             )
 
             if response.status_code == 204:
@@ -367,9 +378,14 @@ async def delete_user(user_id: int, current_user: Dict = Depends(get_current_use
                         error_detail = backend_error["detail"]
                     elif isinstance(backend_error, str):
                         error_detail = backend_error
-                except:
+                except (ValueError, KeyError, TypeError):
+                    # If JSON parsing fails or structure is unexpected
                     error_detail = f"Backend error (status {response.status_code})"
-                raise HTTPException(status_code=response.status_code, detail=error_detail)
+                raise HTTPException(
+                    status_code=response.status_code, detail=error_detail
+                )
 
     except httpx.RequestError as e:
-        raise HTTPException(status_code=503, detail=f"Backend service unavailable: {str(e)}")
+        raise HTTPException(
+            status_code=503, detail=f"Backend service unavailable: {str(e)}"
+        )
