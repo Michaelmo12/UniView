@@ -58,26 +58,3 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True  # Allows conversion from SQLAlchemy models
-
-class Token(BaseModel):
-    """
-    Schema for JWT token response
-    """
-    access_token: str
-    token_type: str = "bearer"
-
-class TokenData(BaseModel):
-    """
-    Schema for data stored inside JWT token
-    """
-    email: Optional[str] = None
-    user_id: Optional[int] = None
-
-class LoginResponse(BaseModel):
-    """
-    Schema for login response
-    Returns both user data and access token
-    """
-    user: UserResponse
-    access_token: str
-    token_type: str = "bearer"
