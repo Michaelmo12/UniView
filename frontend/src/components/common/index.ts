@@ -7,3 +7,4 @@ export { default as StreamCard } from './StreamCard';
 export { default as InfoBox } from './InfoBox';
 export { default as PageHeader } from './PageHeader';
 export { default as Grid } from './Grid';
+export { ProtectedRoute } from './ProtectedRoute';
