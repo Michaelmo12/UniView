@@ -1,38 +1,53 @@
 import { useState } from "react";
-import { Card, Input, Button } from "../components/common";
+import { Card, Input, Button, InfoBox } from "../components/common";
+import { authAPI } from "../services/api/auth";
 
 function AddUser() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState("user");
+  const [role, setRole] = useState<'user' | 'admin'>("user");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setSuccess("");
 
-    // Validate password match
     if (password !== confirmPassword) {
-      alert("Passwords do not match!");
+      setError("Passwords do not match!");
       return;
     }
 
-    // Validate password strength (optional)
-    if (password.length < 6) {
-      alert("Password must be at least 6 characters long!");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long!");
       return;
     }
 
-    // Admin creates user - Logic will be added later
-    console.log("Admin creating user:", {
-      fullName,
-      email,
-      role,
-      // NEVER log passwords!
-    });
+    setLoading(true);
 
-    // TODO: Send to API - password will be hashed on backend
-    // Example: await createUser({ fullName, email, password, role });
+    try {
+      await authAPI.createUser({
+        full_name: fullName,
+        email,
+        password,
+        role,
+      });
+
+      setSuccess(`User ${email} created successfully!`);
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setRole("user");
+    } catch (err: any) {
+      setError(err.message || "Failed to create user. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -97,7 +112,16 @@ function AddUser() {
             </select>
           </div>
 
-          <Button type="submit">Create User</Button>
+          {error && <div className="error-message">{error}</div>}
+          {success && (
+            <InfoBox variant="success">
+              {success}
+            </InfoBox>
+          )}
+
+          <Button type="submit" loading={loading}>
+            {loading ? "Creating User..." : "Create User"}
+          </Button>
         </form>
       </Card>
     </div>
