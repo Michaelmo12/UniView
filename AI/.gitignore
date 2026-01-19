@@ -1,5 +1,5 @@
 datasets/VisDrone
-datasets/MATRIX_yolo_format
+#datasets/MATRIX_yolo_format
 
 models/pretrained
 models/trained
@@ -9,3 +9,13 @@ models/trained
 __pycache__/
 *.pyc
 
+datasets/MATRIX_yolo_format/D1
+datasets/MATRIX_yolo_format/D2
+datasets/MATRIX_yolo_format/D3
+datasets/MATRIX_yolo_format/D4
+datasets/MATRIX_yolo_format/D5
+datasets/MATRIX_yolo_format/D6
+datasets/MATRIX_yolo_format/D7
+datasets/MATRIX_yolo_format/D8
+
+datasets/MATRIX_yolo_format
