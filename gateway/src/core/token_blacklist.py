@@ -4,10 +4,19 @@ SQLite-based JWT Token Blacklist
 """
 
 import sqlite3
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 import threading
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+class TokenBlacklistError(Exception):
+    """Exception raised when token blacklist operations fail"""
+    pass
 
 
 class TokenBlacklist:
@@ -94,7 +103,7 @@ class TokenBlacklist:
 
             return True
         except Exception as e:
-            print(f"Error adding token to blacklist: {e}")
+            logger.error(f"Error adding token to blacklist: {e}", exc_info=True)
             return False
 
     # Check if a token is blacklisted
@@ -107,6 +116,9 @@ class TokenBlacklist:
 
         Returns:
             True if blacklisted, False otherwise
+            
+        Raises:
+            TokenBlacklistError: If database operation fails (fail closed for security)
         """
         try:
             conn = sqlite3.connect(self.db_path)
@@ -125,9 +137,11 @@ class TokenBlacklist:
 
             return result is not None
         except Exception as e:
-            print(f"Error checking token blacklist: {e}")
-            # Fail open: allow request if database error
-            return False
+            logger.error(f"Database error checking token blacklist: {e}", exc_info=True)
+            # Fail closed: reject token if database is unavailable (security best practice)
+            raise TokenBlacklistError(
+                f"Unable to verify token blacklist status: {e}"
+            )
 
     # Remove expired tokens from the blacklist
     def _cleanup_expired(self):
@@ -145,10 +159,10 @@ class TokenBlacklist:
             conn.close()
 
             if deleted_count > 0:
-                print(f"Cleaned up {deleted_count} expired tokens from blacklist")
+                logger.info(f"Cleaned up {deleted_count} expired tokens from blacklist")
 
         except Exception as e:
-            print(f"Error cleaning up expired tokens: {e}")
+            logger.error(f"Error cleaning up expired tokens: {e}", exc_info=True)
 
     # Get statistics about the blacklist
     def get_stats(self) -> dict:
@@ -192,6 +206,18 @@ def add_token_to_blacklist(token: str, expires_at: datetime) -> bool:
 
 
 def is_token_blacklisted(token: str) -> bool:
+    """
+    Check if a token is blacklisted
+    
+    Args:
+        token: JWT token to check
+        
+    Returns:
+        True if blacklisted, False otherwise
+        
+    Raises:
+        TokenBlacklistError: If database operation fails (fail closed for security)
+    """
     return _blacklist.is_blacklisted(token)
 
 
