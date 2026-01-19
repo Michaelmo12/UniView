@@ -140,7 +140,7 @@ class TokenBlacklist:
             logger.error(f"Database error checking token blacklist: {e}", exc_info=True)
             # Fail closed: reject token if database is unavailable (security best practice)
             raise TokenBlacklistError(
-                f"Unable to verify token blacklist status: {str(e)}"
+                f"Unable to verify token blacklist status: {e}"
             )
 
     # Remove expired tokens from the blacklist
@@ -206,6 +206,18 @@ def add_token_to_blacklist(token: str, expires_at: datetime) -> bool:
 
 
 def is_token_blacklisted(token: str) -> bool:
+    """
+    Check if a token is blacklisted
+    
+    Args:
+        token: JWT token to check
+        
+    Returns:
+        True if blacklisted, False otherwise
+        
+    Raises:
+        TokenBlacklistError: If database operation fails (fail closed for security)
+    """
     return _blacklist.is_blacklisted(token)
 
 
