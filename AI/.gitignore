@@ -18,4 +18,6 @@ datasets/MATRIX_yolo_format/D6
 datasets/MATRIX_yolo_format/D7
 datasets/MATRIX_yolo_format/D8
 
-datasets/MATRIX_yolo_format
+datasets/MATRIX_yolo_format/images
+datasets/MATRIX_yolo_format/labels
+

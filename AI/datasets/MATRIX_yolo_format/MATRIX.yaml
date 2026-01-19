@@ -1,0 +1,13 @@
+# MATRIX Dataset Configuration for YOLOv11
+# Pedestrian detection from aerial/surveillance footage
+
+path: datasets/MATRIX_yolo_format
+
+train: images/train
+val: images/val
+test: images/test
+
+# Classes
+nc: 1
+names:
+  0: person
