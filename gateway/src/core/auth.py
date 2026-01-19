@@ -1,6 +1,7 @@
 # Handle token expiration times
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
+import logging
 
 # library for jwt tokens
 from jose import JWTError, jwt
@@ -11,7 +12,10 @@ from fastapi.security import OAuth2PasswordBearer
 from src.config import settings
 
 # is_token_blacklisted function to check if token is blacklisted
-from .token_blacklist import is_token_blacklisted
+from .token_blacklist import is_token_blacklisted, TokenBlacklistError
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Tells FastAPI where to get tokens. This extracts the token from Authorization: Bearer <token> header.
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
@@ -54,14 +58,23 @@ def verify_jwt(token: str) -> Dict[str, Any]:
         Decoded token payload
 
     Raises:
-        HTTPException: If token is invalid, expired, or blacklisted
+        HTTPException: If token is invalid, expired, blacklisted, or blacklist check fails
     """
 
     # Check if token is blacklisted (logged out)
-    if is_token_blacklisted(token):
+    try:
+        if is_token_blacklisted(token):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except TokenBlacklistError as e:
+        # Database error checking blacklist - fail closed for security
+        logger.error(f"Token blacklist check failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has been revoked",
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service temporarily unavailable",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
