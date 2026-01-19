@@ -10,16 +10,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    // Check localStorage first (rememberMe = true), then sessionStorage (rememberMe = false)
     const rememberMe = localStorage.getItem('rememberMe') === 'true';
+    const storage = rememberMe ? localStorage : sessionStorage;
 
-    if (storedToken && storedUser && rememberMe) {
+    const storedToken = storage.getItem('token');
+    const storedUser = storage.getItem('user');
+
+    if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
-    } else if (!rememberMe) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
     }
   }, []);
 
@@ -29,9 +29,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(response.access_token);
     setUser(response.user);
 
-    localStorage.setItem('token', response.access_token);
-    localStorage.setItem('user', JSON.stringify(response.user));
+    // Store rememberMe preference in localStorage (persists across sessions)
     localStorage.setItem('rememberMe', rememberMe.toString());
+
+    // Store token/user in appropriate storage based on rememberMe
+    const storage = rememberMe ? localStorage : sessionStorage;
+    storage.setItem('token', response.access_token);
+    storage.setItem('user', JSON.stringify(response.user));
   };
 
   const logout = async () => {
@@ -42,8 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setToken(null);
       setUser(null);
+      // Clear from both storages to ensure complete logout
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
     }
   };
 

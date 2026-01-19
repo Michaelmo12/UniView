@@ -5,4 +5,6 @@ httpOnly Cookies
 IP validation (optional)
 refresh token (must in furture)
 
-in routes alot of duplicated code - needs fix.
+seperated file for exceptions
+
+move this basemodels to a separate file models.py

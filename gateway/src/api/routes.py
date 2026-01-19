@@ -15,9 +15,6 @@ from jose import jwt as jose_jwt
 
 
 router = APIRouter()
-
-
-# todo move this basemodels to a separate file models.py
 class LoginRequest(BaseModel):
     """Login request model"""
 

@@ -43,8 +43,8 @@ function AddUser() {
       setPassword("");
       setConfirmPassword("");
       setRole("user");
-    } catch (err: any) {
-      setError(err.message || "Failed to create user. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create user. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -104,7 +104,7 @@ function AddUser() {
               id="role"
               className="input-field"
               value={role}
-              onChange={(e) => setRole(e.target.value)}
+              onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
               required
             >
               <option value="user">User</option>
@@ -119,7 +119,7 @@ function AddUser() {
             </InfoBox>
           )}
 
-          <Button type="submit" loading={loading}>
+          <Button type="submit" isLoading={loading}>
             {loading ? "Creating User..." : "Create User"}
           </Button>
         </form>

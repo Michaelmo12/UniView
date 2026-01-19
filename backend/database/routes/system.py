@@ -1,9 +1,10 @@
 """
 System routes (health check, root)
 """
+
 import time
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, status, Response
+from fastapi import APIRouter, status, Response
 from sqlalchemy import text
 from config import settings
 from core import engine
@@ -21,7 +22,7 @@ def health_check(response: Response):
         "status": "healthy",
         "service": "database",
         "timestamp": datetime.utcnow().isoformat(),
-        "checks": {}
+        "checks": {},
     }
 
     all_healthy = True
@@ -41,35 +42,31 @@ def health_check(response: Response):
             "connection_pool": {
                 "size": engine.pool.size(),
                 "checked_in": engine.pool.checkedin(),
-                "overflow": engine.pool.overflow()
-            }
+                "overflow": engine.pool.overflow(),
+            },
         }
     except Exception as e:
         all_healthy = False
-        health_status["checks"]["database"] = {
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        health_status["checks"]["database"] = {"status": "unhealthy", "error": str(e)}
 
     # Check 2: Database Tables
     try:
         with engine.connect() as conn:
-            result = conn.execute(text(
-                "SELECT table_name FROM information_schema.tables "
-                "WHERE table_schema='public'"
-            ))
+            result = conn.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables "
+                    "WHERE table_schema='public'"
+                )
+            )
             tables = [row[0] for row in result]
 
         health_status["checks"]["tables"] = {
             "status": "healthy",
             "count": len(tables),
-            "tables": tables
+            "tables": tables,
         }
     except Exception as e:
-        health_status["checks"]["tables"] = {
-            "status": "warning",
-            "error": str(e)
-        }
+        health_status["checks"]["tables"] = {"status": "warning", "error": str(e)}
 
     # Overall status
     if not all_healthy:
@@ -89,6 +86,6 @@ def root():
             "health": "/health",
             "docs": "/docs",
             "users": "/users",
-            "auth": "/auth"
-        }
+            "auth": "/auth",
+        },
     }

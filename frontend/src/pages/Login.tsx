@@ -28,8 +28,8 @@ function Login() {
     try {
       await login(email, password, rememberMe);
       navigate("/");
-    } catch (err: any) {
-      setError(err.message || "Login failed. Please check your credentials.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please check your credentials.");
     } finally {
       setLoading(false);
     }
@@ -75,7 +75,7 @@ function Login() {
 
         {error && <div className="error-message">{error}</div>}
 
-        <Button type="submit" loading={loading}>
+        <Button type="submit" isLoading={loading}>
           {loading ? "Signing In..." : "Sign In"}
         </Button>
       </form>

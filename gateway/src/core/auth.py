@@ -95,7 +95,7 @@ def verify_jwt(token: str) -> Dict[str, Any]:
             )
 
         return {"user_id": user_id, "email": email, "role": role}
-    # todo exception
+    
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
