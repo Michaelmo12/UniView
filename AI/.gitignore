@@ -1,0 +1,11 @@
+datasets/VisDrone
+datasets/MATRIX_yolo_format
+
+models/pretrained
+models/trained
+*.pt
+
+*.log 
+__pycache__/
+*.pyc
+

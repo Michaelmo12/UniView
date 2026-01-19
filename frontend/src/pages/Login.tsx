@@ -1,18 +1,38 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { AuthCard, Input, Button, Checkbox } from "../components/common";
+import { useAuth } from "../context/AuthContext";
 import "./Login.css";
 
 function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/");
+    }
+  }, [isAuthenticated, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Logic will be added later
-    console.log("Login attempt:", { email, rememberMe });
-    // TODO: Send to API - password will be sent securely
-    // Example: await login({ email, password, rememberMe });
+    setError("");
+    setLoading(true);
+
+    try {
+      await login(email, password, rememberMe);
+      navigate("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Login failed. Please check your credentials.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -53,7 +73,11 @@ function Login() {
           </a>
         </div>
 
-        <Button type="submit">Sign In</Button>
+        {error && <div className="error-message">{error}</div>}
+
+        <Button type="submit" isLoading={loading}>
+          {loading ? "Signing In..." : "Sign In"}
+        </Button>
       </form>
     </AuthCard>
     </div>

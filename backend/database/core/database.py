@@ -34,9 +34,6 @@ def create_tables():
     Create all tables in the database
     Runs once when setting up the database
     """
-    # Import models here to avoid circular imports
-    from models.user import User
-
     # Create all tables
     Base.metadata.create_all(bind=engine)
     print("Database tables created successfully!")

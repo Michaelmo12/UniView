@@ -2,6 +2,10 @@
 MATRIX_30x30/
 venv/
 .claude/
-/dataset/visdrone/backups
-/dataset/visdrone/images
-/dataset/visdrone/labels
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python

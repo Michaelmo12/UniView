@@ -1,0 +1,218 @@
+"""
+SQLite-based JWT Token Blacklist
+*maybe later change to redis or other db for scalability*
+"""
+
+import sqlite3
+import logging
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+import threading
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+class TokenBlacklistError(Exception):
+    """Exception raised when token blacklist operations fail"""
+
+    pass
+
+
+class TokenBlacklist:
+    """SQLite-based token blacklist singleton"""
+
+    # singleton instance
+    _instance: Optional["TokenBlacklist"] = None
+    # stopping race conditions in multithreaded environment
+    _lock = threading.Lock()
+
+    # if 2 threads try to create instance simultaneously must have double check locking and creates only one instance without initializing
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    # returns instance of the class
+                    cls._instance = super().__new__(cls)
+                    cls._instance._initialized = False
+        return cls._instance
+
+    # initializes the database and creates table if not exists
+    def __init__(self):
+        if self._initialized:
+            return
+
+        # Create database in gateway root directory maybe later add to settings instead
+        self.db_path = Path(__file__).parent.parent.parent / "token_blacklist.db"
+        self._create_table()
+        self._initialized = True
+
+    # Creates the blacklist table if it doesn't exist
+    def _create_table(self):
+        """Create the blacklist table if it doesn't exist"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS blacklisted_tokens (
+                    token TEXT PRIMARY KEY,
+                    blacklisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL
+                )
+            """
+            )
+
+            # Create index for faster expiry cleanup
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_expires_at
+                ON blacklisted_tokens(expires_at)
+            """
+            )
+
+            conn.commit()
+
+    # Add a token to the blacklist
+    def add_token(self, token: str, expires_at: datetime) -> bool:
+        """
+        Add a token to the blacklist
+
+        Args:
+            token: JWT token to blacklist
+            expires_at: When the token expires
+
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "INSERT OR REPLACE INTO blacklisted_tokens (token, expires_at) VALUES (?, ?)",
+                    (token, expires_at.isoformat()),
+                )
+
+                conn.commit()
+
+            # Clean up expired tokens while we're here
+            self._cleanup_expired()
+
+            return True
+        except Exception as e:
+            logger.error(f"Error adding token to blacklist: {e}", exc_info=True)
+            return False
+
+    # Check if a token is blacklisted
+    def is_blacklisted(self, token: str) -> bool:
+        """
+        Check if a token is blacklisted
+
+        Args:
+            token: JWT token to check
+
+        Returns:
+            True if blacklisted, False otherwise
+
+        Raises:
+            TokenBlacklistError: If database operation fails (fail closed for security)
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    """
+                    SELECT 1 FROM blacklisted_tokens
+                    WHERE token = ? AND expires_at > datetime('now')
+                    """,
+                    (token,),
+                )
+
+                result = cursor.fetchone()
+
+            return result is not None
+        except Exception as e:
+            logger.error(f"Database error checking token blacklist: {e}", exc_info=True)
+            # Fail closed: reject token if database is unavailable (security best practice)
+            raise TokenBlacklistError(f"Unable to verify token blacklist status: {e}")
+
+    # Remove expired tokens from the blacklist
+    def _cleanup_expired(self):
+        """Remove expired tokens from the blacklist"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "DELETE FROM blacklisted_tokens WHERE expires_at <= datetime('now')"
+                )
+
+                deleted_count = cursor.rowcount
+                conn.commit()
+
+            if deleted_count > 0:
+                logger.info(f"Cleaned up {deleted_count} expired tokens from blacklist")
+
+        except Exception as e:
+            logger.error(f"Error cleaning up expired tokens: {e}", exc_info=True)
+
+    # Get statistics about the blacklist
+    def get_stats(self) -> dict:
+        """
+        Get blacklist statistics
+
+        Returns:
+            Dictionary with blacklist stats
+        """
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+
+                cursor.execute(
+                    "SELECT COUNT(*) FROM blacklisted_tokens WHERE expires_at > datetime('now')"
+                )
+                active_count = cursor.fetchone()[0]
+
+                cursor.execute("SELECT COUNT(*) FROM blacklisted_tokens")
+                total_count = cursor.fetchone()[0]
+
+            return {
+                "status": "healthy",
+                "active_tokens": active_count,
+                "total_tokens": total_count,
+                "expired_tokens": total_count - active_count,
+                "database_path": str(self.db_path),
+            }
+        except Exception as e:
+            return {"status": "unhealthy", "error": str(e)}
+
+
+# Singleton instance
+_blacklist = TokenBlacklist()
+
+
+def add_token_to_blacklist(token: str, expires_at: datetime) -> bool:
+    return _blacklist.add_token(token, expires_at)
+
+
+def is_token_blacklisted(token: str) -> bool:
+    """
+    Check if a token is blacklisted
+
+    Args:
+        token: JWT token to check
+
+    Returns:
+        True if blacklisted, False otherwise
+
+    Raises:
+        TokenBlacklistError: If database operation fails (fail closed for security)
+    """
+    return _blacklist.is_blacklisted(token)
+
+
+def get_blacklist_stats() -> dict:
+    return _blacklist.get_stats()

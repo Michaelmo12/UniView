@@ -2,22 +2,25 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 
-from core import get_db, hash_password, authenticate_user, create_access_token
+from core import get_db, hash_password, authenticate_user
 from models import User
-from schemas import UserSignup, UserLogin, UserResponse, LoginResponse
+from schemas import UserSignup, UserLogin, UserResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user_data: UserSignup, db: Session = Depends(get_db)):
+@router.post("/add-user", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def add_user(user_data: UserSignup, db: Session = Depends(get_db)):
     """
-    Register a new user account
+    Add a new user (Admin only)
 
     - Validates email format and password length
     - Checks if email already exists
     - Hashes password before storing
     - Creates user in database
+
+    Note: This endpoint should only be accessible to admin users.
+    Access control is handled by the Gateway.
     """
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
@@ -39,36 +42,27 @@ def signup(user_data: UserSignup, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
 
-    logger.info(f"New user registered: {new_user.email}")
+    logger.info(f"New user added by admin: {new_user.email}")
 
     return new_user
 
-@router.post("/login", response_model=LoginResponse)
+@router.post("/login", response_model=UserResponse)
 def login(credentials: UserLogin, db: Session = Depends(get_db)):
     """
-    Login with email and password
+    Validate user credentials
 
-    - Authenticates user credentials
-    - Returns user data and JWT access token
-    - Token valid for 24 hours (configurable in .env)
+    Called by Gateway to validate login.
+    Gateway creates JWT token, not this service.
+    Returns user data if credentials are valid.
     """
     user = authenticate_user(db, credentials.email, credentials.password)
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Incorrect email or password"
         )
 
-    access_token = create_access_token(
-        data={"sub": user.email, "user_id": user.id}
-    )
+    logger.info(f"User credentials validated: {user.email}")
 
-    logger.info(f"User logged in: {user.email}")
-
-    return {
-        "user": user,
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    return user

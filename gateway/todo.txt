@@ -1,0 +1,10 @@
+TO DO: 
+HTTP*S*
+short expiration
+httpOnly Cookies
+IP validation (optional)
+refresh token (must in furture)
+
+seperated file for exceptions
+
+move this basemodels to a separate file models.py

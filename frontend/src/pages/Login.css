@@ -14,3 +14,13 @@
 .login-forgot-link:hover {
   opacity: 0.8;
 }
+
+.error-message {
+  padding: 12px;
+  background: rgba(255, 68, 68, 0.1);
+  border: 1px solid var(--neon-orange);
+  border-radius: 8px;
+  color: var(--neon-orange);
+  font-size: 14px;
+  text-align: center;
+}

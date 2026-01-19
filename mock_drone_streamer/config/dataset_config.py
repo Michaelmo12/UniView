@@ -10,8 +10,8 @@ from pathlib import Path
 class DatasetConfig:
     """Dataset configuration constants"""
 
-    # MATRIX dataset root path
-    DATASET_PATH = r"C:\Projects_H.W\FINAL-PROJECT\UniView\MATRIX_30x30\MATRIX_30x30"
+    # MATRIX dataset root path (relative to project root)
+    DATASET_PATH = str(Path(__file__).parent.parent.parent / "MATRIX_30x30" / "MATRIX_30x30")
 
     # Validate dataset path on import
     @classmethod

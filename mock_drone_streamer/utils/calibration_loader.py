@@ -310,7 +310,7 @@ if __name__ == "__main__":
     Run: python calibration_loader.py
     """
     # Test configuration
-    DATASET_PATH = Path(__file__).parent.parent.parent.parent / "MATRIX_30x30" / "MATRIX_30x30"
+    DATASET_PATH = Path(__file__).parent.parent.parent / "MATRIX_30x30" / "MATRIX_30x30"
     TEST_FRAME_NUM = 0
     DRONES_TO_COMPARE = [1, 2, 3, 4]  # Compare first 4 drones
 
