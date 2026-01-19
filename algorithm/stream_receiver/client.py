@@ -147,8 +147,9 @@ def receiver_worker(drone_id, port, frame_buffer):
             if client_sock:
                 try:
                     client_sock.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    # Log socket close errors instead of silently ignoring them
+                    print(f"⚠️  Drone {drone_id}: Error while closing socket: {e}")
                 client_sock = None
 
     # Cleanup when receiver thread exits
