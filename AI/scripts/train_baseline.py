@@ -9,7 +9,7 @@ Purpose: Initial verification that everything works before running full training
 Usage:
     python train_baseline.py
 
-Output: runs/baseline/
+Output: models/trained/baseline/
 """
 
 import os
