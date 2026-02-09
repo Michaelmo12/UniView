@@ -5,6 +5,9 @@ venv/
 .planning/
 
 
+# Secrets
+.env
+
 # Python cache files
 __pycache__/
 *.pyc

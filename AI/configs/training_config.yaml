@@ -43,14 +43,14 @@ final:
 # OPTUNA - HYPERPARAMETER SEARCH
 # ───────────────────────────────────────────────────────────
 optuna:
-  n_trials: 20                     # כמה ניסויים
+  n_trials: 3                      # כמה ניסויים
   epochs_per_trial: 30             # epochs לכל trial
   timeout: 72000                   # 20 hours max
   
   search_space:
-    lr0: [1e-5, 1e-2]             # learning rate range
+    lr0: [0.00001, 0.01]          # learning rate range
     freeze: [0, 15]                # layers to freeze
-    batch: [8, 16, 32]            # batch sizes to try
+    batch: [8, 16]                 # batch sizes (32 exceeds 8GB VRAM)
     lrf: [0.01, 0.1]              # final lr multiplier
 
 # ───────────────────────────────────────────────────────────
