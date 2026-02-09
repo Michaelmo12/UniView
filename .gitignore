@@ -2,6 +2,8 @@
 MATRIX_30x30/
 venv/
 .claude/
+.planning/
+
 
 # Python cache files
 __pycache__/
@@ -9,3 +11,4 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+
