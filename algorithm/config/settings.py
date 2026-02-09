@@ -1,0 +1,123 @@
+"""
+Algorithm Microservice Configuration
+
+Settings are added incrementally as each module is implemented.
+This keeps configuration connected to actual usage.
+
+Usage:
+    from config.settings import settings
+    value = settings.some_config.some_value
+"""
+
+from dataclasses import dataclass, field
+from pathlib import Path
+
+
+@dataclass
+class NetworkConfig:
+    """Network configuration for TCP receivers."""
+    base_port: int = 15000  # Drone 1 on port 15000, drone 2 on 15001, etc.
+    host: str = "127.0.0.1"
+    recv_timeout: float = 10.0  # Socket receive timeout (seconds)
+    reconnect_delay: float = 5.0  # Delay before reconnecting after disconnect
+
+
+@dataclass
+class IngestionConfig:
+    """Ingestion stage configuration."""
+    num_drones: int = 8  # Expected number of drones
+    sync_timeout: float = 0.2  # Frame synchronization timeout (seconds)
+    max_buffer_size: int = 100  # Max frames buffered per synchronizer
+
+
+@dataclass
+class DetectionConfig:
+    """Detection stage configuration."""
+    weights_file: str = "best.pt"  # YOLO weights filename (in weights/)
+    conf_threshold: float = 0.5  # Minimum detection confidence
+    iou_threshold: float = 0.45  # NMS IoU threshold
+    person_class_id: int = 0  # Class ID for person
+    imgsz: int = 640  # YOLO input size
+    device: str = "cuda"  # "cuda" or "cpu"
+
+
+@dataclass
+class Settings:
+    """
+    Root settings container.
+
+    Sub-configurations:
+    - network: TCP receiver settings
+    - ingestion: Frame synchronization settings
+    - detection: YOLO detector settings
+    - fusion: (TODO) Epipolar geometry settings
+    - reconstruction: (TODO) Triangulation settings
+    - tracking: (TODO) Kalman filter settings
+    """
+
+    # Sub-configurations
+    network: NetworkConfig = field(default_factory=NetworkConfig)
+    ingestion: IngestionConfig = field(default_factory=IngestionConfig)
+    detection: DetectionConfig = field(default_factory=DetectionConfig)
+
+    @property
+    def base_dir(self) -> Path:
+        """
+        Get the base directory of the algorithm microservice.
+        base_dir is:     algorithm/
+        """
+        return Path(__file__).parent.parent
+
+    @property
+    def weights_dir(self) -> Path:
+        """Get the weights directory for YOLO model."""
+        return self.base_dir / "weights"
+
+    @property
+    def weights_path(self) -> Path:
+        """Get full path to YOLO weights file."""
+        return self.weights_dir / self.detection.weights_file
+
+
+# Singleton instance - all modules import this same object
+settings = Settings()
+
+
+if __name__ == "__main__":
+    """Test: python config/settings.py"""
+    import logging
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)-7s | %(message)s"
+    )
+    logger = logging.getLogger(__name__)
+
+    logger.info("=" * 60)
+    logger.info("Algorithm Configuration")
+    logger.info("=" * 60)
+    logger.info("")
+    logger.info("Paths:")
+    logger.info("  Base directory: %s", settings.base_dir)
+    logger.info("  Weights directory: %s", settings.weights_dir)
+    logger.info("  Weights path: %s", settings.weights_path)
+    logger.info("  Weights exists: %s", settings.weights_path.exists())
+    logger.info("")
+    logger.info("Network:")
+    logger.info("  Base port: %d", settings.network.base_port)
+    logger.info("  Host: %s", settings.network.host)
+    logger.info("  Recv timeout: %.1fs", settings.network.recv_timeout)
+    logger.info("")
+    logger.info("Ingestion:")
+    logger.info("  Num drones: %d", settings.ingestion.num_drones)
+    logger.info("  Sync timeout: %.3fs", settings.ingestion.sync_timeout)
+    logger.info("  Max buffer: %d", settings.ingestion.max_buffer_size)
+    logger.info("")
+    logger.info("Detection:")
+    logger.info("  Weights file: %s", settings.detection.weights_file)
+    logger.info("  Confidence: %.2f", settings.detection.conf_threshold)
+    logger.info("  IoU threshold: %.2f", settings.detection.iou_threshold)
+    logger.info("  Device: %s", settings.detection.device)
+    logger.info("  Image size: %d", settings.detection.imgsz)
+    logger.info("")
+    logger.info("=" * 60)
