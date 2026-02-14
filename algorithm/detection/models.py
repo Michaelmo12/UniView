@@ -72,9 +72,6 @@ class Detection:
     Single detected object in an image.
 
     This represents one detection from YOLO:
-    - Bounding box location
-    - Object class (0=person for our use case)
-    - Confidence score
 
     Attributes:
         bbox: 2D bounding box in image coordinates
@@ -91,6 +88,7 @@ class Detection:
     drone_id: int
     frame_num: int
     local_id: Optional[int] = None
+    features: Optional[np.ndarray] = None  # WCH feature vector, set by feature extraction stage
 
     def __post_init__(self):
         assert (
@@ -166,9 +164,6 @@ class DetectionSet:
             f"detections={self.num_detections}, time={self.inference_time:.3f}s)"
         )
 
-# =============================================================================
-# DEBUG / TESTING
-# =============================================================================
 
 if __name__ == "__main__":
     import logging

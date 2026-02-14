@@ -1,14 +1,3 @@
-"""
-Algorithm Microservice Configuration
-
-Settings are added incrementally as each module is implemented.
-This keeps configuration connected to actual usage.
-
-Usage:
-    from config.settings import settings
-    value = settings.some_config.some_value
-"""
-
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,6 +5,7 @@ from pathlib import Path
 @dataclass
 class NetworkConfig:
     """Network configuration for TCP receivers."""
+
     base_port: int = 15000  # Drone 1 on port 15000, drone 2 on 15001, etc.
     host: str = "127.0.0.1"
     recv_timeout: float = 10.0  # Socket receive timeout (seconds)
@@ -25,6 +15,7 @@ class NetworkConfig:
 @dataclass
 class IngestionConfig:
     """Ingestion stage configuration."""
+
     num_drones: int = 8  # Expected number of drones
     sync_timeout: float = 0.2  # Frame synchronization timeout (seconds)
     max_buffer_size: int = 100  # Max frames buffered per synchronizer
@@ -33,12 +24,27 @@ class IngestionConfig:
 @dataclass
 class DetectionConfig:
     """Detection stage configuration."""
+
+    # weights_file: str = "yolo11s.pt"
     weights_file: str = "best.pt"  # YOLO weights filename (in weights/)
     conf_threshold: float = 0.5  # Minimum detection confidence
     iou_threshold: float = 0.45  # NMS IoU threshold
     person_class_id: int = 0  # Class ID for person
     imgsz: int = 640  # YOLO input size
-    device: str = "cuda"  # "cuda" or "cpu"
+    device: str = "cpu"  # "cuda" or "cpu"
+
+
+@dataclass
+class FeatureConfig:
+    """Feature extraction stage configuration."""
+
+    bins_per_channel: int = 16  # Histogram bins per HSV channel (16 x 3 x 2 = 96 dims)
+    upper_weight: float = 0.6  # Torso region weight (more distinctive clothing)
+    lower_weight: float = 0.4  # Legs region weight
+    min_crop_width: int = 20  # Minimum crop width (below this, histograms too noisy)
+    min_crop_height: int = 40  # Minimum crop height in pixels
+    crop_resize_height: int = 128  # Resize crops to fixed height for consistent split
+    crop_resize_width: int = 64  # Resize crops to fixed width
 
 
 @dataclass
@@ -59,18 +65,15 @@ class Settings:
     network: NetworkConfig = field(default_factory=NetworkConfig)
     ingestion: IngestionConfig = field(default_factory=IngestionConfig)
     detection: DetectionConfig = field(default_factory=DetectionConfig)
+    features: FeatureConfig = field(default_factory=FeatureConfig)
 
     @property
     def base_dir(self) -> Path:
-        """
-        Get the base directory of the algorithm microservice.
-        base_dir is:     algorithm/
-        """
+        """Base directory of the algorithm code."""
         return Path(__file__).parent.parent
 
     @property
     def weights_dir(self) -> Path:
-        """Get the weights directory for YOLO model."""
         return self.base_dir / "weights"
 
     @property
@@ -88,8 +91,7 @@ if __name__ == "__main__":
     import logging
 
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)-7s | %(message)s"
+        level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(message)s"
     )
     logger = logging.getLogger(__name__)
 
