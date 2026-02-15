@@ -12,8 +12,8 @@ Key Components:
 - models: CrossCameraMatch, MatchGroup, FusionResult
 - fundamental_matrix: Compute F matrices from projection matrices
 - epipolar_filter: Geometric constraint filtering
-- visual_matcher: (TODO) Appearance-based matching using WCH features
-- cross_drone_matcher: (TODO) Full fusion pipeline
+- appearance_matcher: Appearance-based matching using WCH features with Hungarian assignment
+- cross_camera_matcher: Full fusion pipeline orchestrator
 
 Usage:
     from fusion import (
@@ -22,6 +22,8 @@ Usage:
         FusionResult,
         compute_fundamental_matrix,
         filter_by_epipolar_constraint,
+        AppearanceMatcher,
+        CrossCameraMatcher,
     )
 """
 
@@ -43,6 +45,10 @@ from fusion.epipolar_filter import (
     point_to_line_distance,
 )
 
+from fusion.appearance_matcher import AppearanceMatcher
+
+from fusion.cross_camera_matcher import CrossCameraMatcher
+
 __all__ = [
     # Data models
     "CrossCameraMatch",
@@ -56,4 +62,8 @@ __all__ = [
     "filter_matches_batch",
     "compute_epipolar_distance",
     "point_to_line_distance",
+    # Appearance matching
+    "AppearanceMatcher",
+    # Cross-camera fusion
+    "CrossCameraMatcher",
 ]
