@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -48,24 +48,52 @@ class FeatureConfig:
 
 
 @dataclass
+class FusionConfig:
+    """Cross-camera fusion stage configuration."""
+
+    epipolar_threshold: float = 5.0  # Max point-to-epiline distance (pixels) for geometric match
+    appearance_threshold: float = 0.7  # Min WCH cosine similarity for appearance match
+    min_cameras: int = 2  # Minimum cameras that must observe a person for valid match
+
+
 class Settings:
     """
-    Root settings container.
+    Root settings container with Singleton Pattern.
 
     Sub-configurations:
     - network: TCP receiver settings
     - ingestion: Frame synchronization settings
     - detection: YOLO detector settings
-    - fusion: (TODO) Epipolar geometry settings
+    - features: Feature extraction settings
+    - fusion: Cross-camera fusion settings
     - reconstruction: (TODO) Triangulation settings
     - tracking: (TODO) Kalman filter settings
     """
 
-    # Sub-configurations
-    network: NetworkConfig = field(default_factory=NetworkConfig)
-    ingestion: IngestionConfig = field(default_factory=IngestionConfig)
-    detection: DetectionConfig = field(default_factory=DetectionConfig)
-    features: FeatureConfig = field(default_factory=FeatureConfig)
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """
+        Initialize configuration only once.
+        Subsequent calls to __init__ are ignored due to _initialized flag.
+        """
+        if Settings._initialized:
+            return
+
+        # Sub-configurations
+        self.network = NetworkConfig()
+        self.ingestion = IngestionConfig()
+        self.detection = DetectionConfig()
+        self.features = FeatureConfig()
+        self.fusion = FusionConfig()
+
+        Settings._initialized = True
 
     @property
     def base_dir(self) -> Path:
@@ -83,6 +111,7 @@ class Settings:
 
 
 # Singleton instance - all modules import this same object
+# Even if Settings() is called again elsewhere, it returns this same instance
 settings = Settings()
 
 
@@ -98,6 +127,29 @@ if __name__ == "__main__":
     logger.info("=" * 60)
     logger.info("Algorithm Configuration")
     logger.info("=" * 60)
+    logger.info("")
+
+    # SINGLETON PATTERN TEST
+    logger.info("Testing Singleton Pattern:")
+    logger.info("  Creating first instance: settings1 = Settings()")
+    settings1 = Settings()
+    logger.info("  Creating second instance: settings2 = Settings()")
+    settings2 = Settings()
+    logger.info("  Creating third instance: settings3 = Settings()")
+    settings3 = Settings()
+
+    logger.info("  settings1 is settings2: %s", settings1 is settings2)
+    logger.info("  settings2 is settings3: %s", settings2 is settings3)
+    logger.info("  settings1 is settings: %s", settings1 is settings)
+    logger.info("  id(settings1): %s", id(settings1))
+    logger.info("  id(settings2): %s", id(settings2))
+    logger.info("  id(settings3): %s", id(settings3))
+
+    if settings1 is settings2 is settings3 is settings:
+        logger.info("  ✓ SINGLETON PATTERN WORKS! All instances are identical.")
+    else:
+        logger.error("  ✗ SINGLETON PATTERN FAILED!")
+
     logger.info("")
     logger.info("Paths:")
     logger.info("  Base directory: %s", settings.base_dir)
