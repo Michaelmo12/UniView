@@ -56,6 +56,15 @@ class FusionConfig:
     min_cameras: int = 2  # Minimum cameras that must observe a person for valid match
 
 
+@dataclass
+class ReconstructionConfig:
+    """3D reconstruction stage configuration."""
+
+    max_reprojection_error: float = 10.0  # Max avg reprojection error (pixels) to accept triangulation
+    dbscan_eps: float = 2.0  # DBSCAN epsilon (meters) -- max distance between points in cluster
+    dbscan_min_samples: int = 2  # DBSCAN min_samples -- minimum 2 points to form cluster (isolated points become noise)
+
+
 class Settings:
     """
     Root settings container with Singleton Pattern.
@@ -66,7 +75,7 @@ class Settings:
     - detection: YOLO detector settings
     - features: Feature extraction settings
     - fusion: Cross-camera fusion settings
-    - reconstruction: (TODO) Triangulation settings
+    - reconstruction: Triangulation and clustering settings
     - tracking: (TODO) Kalman filter settings
     """
 
@@ -92,6 +101,7 @@ class Settings:
         self.detection = DetectionConfig()
         self.features = FeatureConfig()
         self.fusion = FusionConfig()
+        self.reconstruction = ReconstructionConfig()
 
         Settings._initialized = True
 

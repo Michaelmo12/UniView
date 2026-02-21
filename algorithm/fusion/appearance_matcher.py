@@ -148,11 +148,19 @@ class AppearanceMatcher:
         # Run Hungarian algorithm
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
+        # Build set of valid candidate pairs for fast lookup
+        valid_pairs = {(idx_a, idx_b) for idx_a, idx_b, _ in candidates}
+
         # Map back to original indices and filter by threshold
         result = []
         for sub_i, sub_j in zip(row_ind, col_ind):
             orig_i = idx_a_list[sub_i]
             orig_j = idx_b_list[sub_j]
+
+            # Only keep if this pair was a geometric candidate
+            if (orig_i, orig_j) not in valid_pairs:
+                continue
+
             similarity = similarity_matrix[orig_i, orig_j]
 
             # Only keep if similarity exceeds threshold
