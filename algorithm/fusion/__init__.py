@@ -27,27 +27,27 @@ Usage:
     )
 """
 
-from fusion.models import (
+from algorithm.fusion.models import (
     CrossCameraMatch,
     MatchGroup,
     FusionResult,
 )
 
-from fusion.fundamental_matrix import (
+from algorithm.fusion.fundamental_matrix import (
     compute_fundamental_matrix,
     compute_fundamental_matrix_batch,
 )
 
-from fusion.epipolar_filter import (
+from algorithm.fusion.epipolar_filter import (
     filter_by_epipolar_constraint,
     filter_matches_batch,
     compute_epipolar_distance,
     point_to_line_distance,
 )
 
-from fusion.appearance_matcher import AppearanceMatcher
+from algorithm.fusion.appearance_matcher import AppearanceMatcher
 
-from fusion.cross_camera_matcher import CrossCameraMatcher
+from algorithm.fusion.cross_camera_matcher import CrossCameraMatcher
 
 __all__ = [
     # Data models

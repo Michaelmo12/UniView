@@ -40,11 +40,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-# Use relative import when this module is part of a package
-try:
-    from ingestion.models import CameraCalibration, DroneFrame
-except ImportError:
-    from models import CameraCalibration, DroneFrame
+from algorithm.ingestion.models import CameraCalibration, DroneFrame
 
 # Header format string for struct.unpack()
 # B = unsigned char (1 byte)  → drone_id
@@ -306,12 +302,6 @@ class ProtocolDecoder:
             dist[: len(dist_values)] = dist_values
 
         return K, dist
-
-
-def decode_packet(packet: bytes) -> DroneFrame:
-
-    decoder = ProtocolDecoder()
-    return decoder.decode_packet(packet)
 
 
 if __name__ == "__main__":

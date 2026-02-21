@@ -16,29 +16,21 @@ import numpy as np
 @dataclass
 class CrossCameraMatch:
     """
-    A candidate match between two detections from different cameras.
+    A valid match between two detections from different cameras.
 
-    Represents a potential correspondence between a person seen in camera A
-    and a person seen in camera B. The match is scored by both geometric
-    consistency (epipolar constraint) and appearance similarity (WCH distance).
+    Represents a correspondence between a person seen in camera A and camera B
+    that has passed BOTH geometric (epipolar) and appearance (WCH) constraints.
 
-    Attributes:
-        drone_id_a: First camera ID
-        drone_id_b: Second camera ID
-        local_id_a: Detection ID in camera A
-        local_id_b: Detection ID in camera B
-        epipolar_distance: Point-to-epiline distance (pixels) - geometric score
-        appearance_score: WCH cosine similarity [0, 1] - appearance score
-        is_valid: True if both geometric and appearance constraints satisfied
+    Note: Only valid matches are instantiated. Invalid candidates are discarded
+    during filtering and never create CrossCameraMatch objects.
     """
 
-    drone_id_a: int
-    drone_id_b: int
-    local_id_a: int
-    local_id_b: int
-    epipolar_distance: float
-    appearance_score: float
-    is_valid: bool = True
+    drone_id_a: int #First camera ID
+    drone_id_b: int #Second camera ID
+    local_id_a: int #Detection ID in camera A
+    local_id_b: int #Detection ID in camera B
+    epipolar_distance: float #Point-to-epiline distance (pixels) - geometric score
+    appearance_score: float #WCH cosine similarity [0, 1] - appearance score
 
     def __post_init__(self):
         assert self.drone_id_a != self.drone_id_b, (
@@ -53,13 +45,11 @@ class CrossCameraMatch:
         )
 
     def __repr__(self) -> str:
-        """String representation for debugging."""
         return (
             f"CrossCameraMatch(drone_{self.drone_id_a}[{self.local_id_a}] <-> "
             f"drone_{self.drone_id_b}[{self.local_id_b}], "
             f"epi={self.epipolar_distance:.1f}px, "
-            f"app={self.appearance_score:.3f}, "
-            f"valid={self.is_valid})"
+            f"app={self.appearance_score:.3f})"
         )
 
 
@@ -75,15 +65,10 @@ class MatchGroup:
     1. Starting with pairwise CrossCameraMatch instances
     2. Clustering matches using transitive closure
     3. Each cluster becomes one MatchGroup
-
-    Attributes:
-        detections: List of (drone_id, local_id) tuples for all detections in group
-        mean_appearance_score: Average appearance score across all pairwise matches
-        num_cameras: How many distinct cameras observed this person
     """
 
-    detections: list[tuple[int, int]] = field(default_factory=list)
-    mean_appearance_score: float = 0.0
+    detections: list[tuple[int, int]] = field(default_factory=list) #List of (drone_id, local_id) tuples for all detections in group
+    mean_appearance_score: float = 0.0 #Average appearance score across all pairwise matches
 
     @property
     def num_cameras(self) -> int:
@@ -179,7 +164,6 @@ class FusionResult:
         return [g for g in self.match_groups if g.num_cameras >= min_cameras]
 
     def __repr__(self) -> str:
-        """String representation for debugging."""
         return (
             f"FusionResult(frame={self.frame_num}, "
             f"groups={self.num_groups}, "
@@ -205,7 +189,6 @@ if __name__ == "__main__":
         local_id_b=3,
         epipolar_distance=2.5,
         appearance_score=0.85,
-        is_valid=True,
     )
     logger.info(match1)
 

@@ -1,19 +1,9 @@
-"""
-Appearance-based matching using WCH feature similarity.
-
-Uses cosine similarity between WCH descriptors to verify geometric candidates.
-Applies Hungarian algorithm for optimal 1-to-1 assignment.
-
-White-box: Matrix multiplication for cosine similarity (since WCH is L2-normalized),
-scipy.optimize.linear_sum_assignment for optimal bipartite matching.
-"""
-
 import logging
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from detection.models import Detection
-from config.settings import FusionConfig
+from algorithm.detection.models import Detection
+from algorithm.config.settings import FusionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +20,29 @@ class AppearanceMatcher:
     """
 
     def __init__(self, config: FusionConfig):
+        self.config = config
+
+    def _extract_features(self, detections: list[Detection]) -> list[np.ndarray]:
         """
-        Initialize appearance matcher.
+        Extract WCH features from detections, using zero vectors for missing features.
 
         Args:
-            config: FusionConfig with appearance_threshold
+            detections: List of Detection objects
+
+        Returns:
+            List of WCH feature vectors (96-dimensional)
         """
-        self.config = config
+        features = []
+        for det in detections:
+            if det.features is not None:
+                features.append(det.features)
+            else:
+                logger.warning(
+                    f"Detection drone={det.drone_id} frame={det.frame_num} "
+                    f"local_id={det.local_id} has no features"
+                )
+                features.append(np.zeros(96, dtype=np.float32))
+        return features
 
     def build_similarity_matrix(
         self, detections_a: list[Detection], detections_b: list[Detection]
@@ -56,41 +62,18 @@ class AppearanceMatcher:
         n = len(detections_a)
         m = len(detections_b)
 
-        # Handle empty cases
         if n == 0 or m == 0:
             return np.zeros((n, m), dtype=np.float64)
 
-        # Extract features from detections_a
-        features_a = []
-        for det in detections_a:
-            if det.features is not None:
-                features_a.append(det.features)
-            else:
-                # No features - use zero vector (will result in zero similarity)
-                logger.warning(
-                    f"Detection drone={det.drone_id} frame={det.frame_num} "
-                    f"local_id={det.local_id} has no features"
-                )
-                features_a.append(np.zeros(96, dtype=np.float32))
+        features_a = self._extract_features(detections_a)
+        features_b = self._extract_features(detections_b)
 
-        # Extract features from detections_b
-        features_b = []
-        for det in detections_b:
-            if det.features is not None:
-                features_b.append(det.features)
-            else:
-                logger.warning(
-                    f"Detection drone={det.drone_id} frame={det.frame_num} "
-                    f"local_id={det.local_id} has no features"
-                )
-                features_b.append(np.zeros(96, dtype=np.float32))
-
-        # Stack into matrices
+        # Stack into matrices from numpy arrays (ensuring float64 for precision in similarity computation)
         A = np.vstack(features_a).astype(np.float64)  # (n, 96)
         B = np.vstack(features_b).astype(np.float64)  # (m, 96)
 
         # Compute similarity: A @ B.T
-        # Since WCH is L2-normalized, dot product equals cosine similarity
+        # Since WCH is L2-normalized, dot product equals cosine similarity(Cosine similarity = (a · b) / (||a|| × ||b||) and ||a|| = ||b|| = 1)
         similarity = A @ B.T  # (n, m)
 
         return similarity
@@ -128,8 +111,13 @@ class AppearanceMatcher:
         idx_b_list = sorted(idx_b_set)
 
         # Build mapping from original indices to sub-matrix indices
-        a_to_sub = {orig: sub for sub, orig in enumerate(idx_a_list)}
-        b_to_sub = {orig: sub for sub, orig in enumerate(idx_b_list)}
+        a_to_sub = {}
+        for sub, orig in enumerate(idx_a_list):
+            a_to_sub[orig] = sub
+
+        b_to_sub = {}
+        for sub, orig in enumerate(idx_b_list):
+            b_to_sub[orig] = sub
 
         # Create sub-matrix for candidate pairs only
         n_sub = len(idx_a_list)
@@ -145,11 +133,13 @@ class AppearanceMatcher:
         # Convert similarity to cost (Hungarian minimizes)
         cost_matrix = 1.0 - sub_similarity
 
-        # Run Hungarian algorithm
+        # Run Hungarian algorithm - must pick one value from each row and one value from each column. so we only take detections with best similarity
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
         # Build set of valid candidate pairs for fast lookup
-        valid_pairs = {(idx_a, idx_b) for idx_a, idx_b, _ in candidates}
+        valid_pairs = set()
+        for idx_a, idx_b, _ in candidates:
+            valid_pairs.add((idx_a, idx_b))
 
         # Map back to original indices and filter by threshold
         result = []
@@ -351,7 +341,9 @@ if __name__ == "__main__":
 
     # Person A should match cam2 det 0, not det 1
     if len(confirmed_v2) > 0:
-        assert confirmed_v2[0][1] == 0, f"Should match det 0, got det {confirmed_v2[0][1]}"
+        assert (
+            confirmed_v2[0][1] == 0
+        ), f"Should match det 0, got det {confirmed_v2[0][1]}"
         logger.info("  ✓ PASS: Correct match selected")
     else:
         logger.warning("  ⚠ No matches confirmed (threshold too high)")

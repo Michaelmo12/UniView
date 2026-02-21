@@ -18,13 +18,13 @@ import itertools
 import numpy as np
 from collections import defaultdict
 
-from fusion.models import CrossCameraMatch, MatchGroup, FusionResult
-from fusion.fundamental_matrix import compute_fundamental_matrix
-from fusion.epipolar_filter import compute_epipolar_distance
-from fusion.appearance_matcher import AppearanceMatcher
-from detection.models import Detection, DetectionSet
-from features.models import PersonFeatures
-from config.settings import FusionConfig
+from algorithm.fusion.models import CrossCameraMatch, MatchGroup, FusionResult
+from algorithm.fusion.fundamental_matrix import compute_fundamental_matrix
+from algorithm.fusion.epipolar_filter import compute_epipolar_distance
+from algorithm.fusion.appearance_matcher import AppearanceMatcher
+from algorithm.detection.models import Detection, DetectionSet
+from algorithm.features.models import PersonFeatures
+from algorithm.config.settings import FusionConfig
 
 logger = logging.getLogger(__name__)
 
@@ -146,9 +146,7 @@ class CrossCameraMatcher:
                     f"  Pair ({drone_id_a}, {drone_id_b}): {len(matches)} matches"
                 )
             else:
-                logger.debug(
-                    f"  Pair ({drone_id_a}, {drone_id_b}): no matches"
-                )
+                logger.debug(f"  Pair ({drone_id_a}, {drone_id_b}): no matches")
 
         # Merge pairwise matches into groups
         match_groups = self._merge_to_groups(pairwise_matches)
@@ -243,8 +241,7 @@ class CrossCameraMatcher:
 
         # Build lookup dict for epipolar distances
         candidate_distances = {
-            (idx_a, idx_b): distance
-            for idx_a, idx_b, distance in geometric_candidates
+            (idx_a, idx_b): distance for idx_a, idx_b, distance in geometric_candidates
         }
 
         # Create CrossCameraMatch objects
@@ -264,7 +261,6 @@ class CrossCameraMatcher:
                 local_id_b=det_b.local_id,
                 epipolar_distance=epipolar_distance,
                 appearance_score=similarity,
-                is_valid=True,
             )
             matches.append(match)
 
@@ -331,17 +327,24 @@ class CrossCameraMatcher:
             scores = []
             for i in range(len(detections)):
                 for j in range(i + 1, len(detections)):
-                    edge = (min(detections[i], detections[j]), max(detections[i], detections[j]))
+                    edge = (
+                        min(detections[i], detections[j]),
+                        max(detections[i], detections[j]),
+                    )
                     if edge in match_dict:
                         scores.append(match_dict[edge].appearance_score)
 
             mean_score = np.mean(scores) if len(scores) > 0 else 0.0
 
-            group = MatchGroup(detections=detections, mean_appearance_score=float(mean_score))
+            group = MatchGroup(
+                detections=detections, mean_appearance_score=float(mean_score)
+            )
             groups.append(group)
 
-        logger.debug(f"  Merged {sum(len(m) for m in pairwise_matches.values())} "
-                     f"pairwise matches into {len(groups)} groups")
+        logger.debug(
+            f"  Merged {sum(len(m) for m in pairwise_matches.values())} "
+            f"pairwise matches into {len(groups)} groups"
+        )
 
         return groups
 
@@ -361,9 +364,7 @@ class CrossCameraMatcher:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, format="%(levelname)-7s | %(message)s"
-    )
+    logging.basicConfig(level=logging.INFO, format="%(levelname)-7s | %(message)s")
     logger = logging.getLogger(__name__)
 
     logger.info("Testing CrossCameraMatcher")
@@ -533,7 +534,9 @@ if __name__ == "__main__":
 
     # Check 1: Should have 2 groups (Person A and Person B)
     # Person C is unmatched, so might be in a singleton group or not in groups at all
-    assert result.num_groups >= 2, f"Expected at least 2 groups, got {result.num_groups}"
+    assert (
+        result.num_groups >= 2
+    ), f"Expected at least 2 groups, got {result.num_groups}"
     logger.info(f"  ✓ PASS: {result.num_groups} match groups found")
 
     # Check 2: Person A should be matched across cameras 1-2

@@ -1,82 +1,74 @@
-"""
-Fundamental Matrix Computation
-
-Computes fundamental matrices from projection matrix pairs for epipolar geometry.
-
-The fundamental matrix F encodes the epipolar constraint:
-    x2^T @ F @ x1 = 0
-
-Where x1 and x2 are corresponding points in two camera views (homogeneous coords).
-This constraint says: a point in camera 1 must lie on its corresponding epipolar
-line in camera 2.
-
-White-box: Standard computer vision formula with rank-2 enforcement via SVD.
-"""
-
 import numpy as np
 
 
 def compute_fundamental_matrix(P1: np.ndarray, P2: np.ndarray) -> np.ndarray:
     """
-    Compute fundamental matrix from two projection matrices.
+    Calculates F from two projection matrices P1 and P2.
 
-    The fundamental matrix F relates corresponding points in two views:
-        x2^T @ F @ x1 = 0
-
-    Where x1, x2 are homogeneous pixel coordinates in images 1 and 2.
-
-    Algorithm (Hartley & Zisserman, "Multiple View Geometry", Section 9.2.2):
-    1. Compute camera center C1 from P1 (null space of P1)
-    2. Project C1 to image 2: e2 = P2 @ C1 (epipole in image 2)
-    3. Compute F = [e2]_x @ P2 @ P1^+
-       - [e2]_x is the skew-symmetric matrix of e2 (cross-product operator)
-       - P1^+ is the pseudoinverse of P1
-    4. Enforce rank-2 constraint via SVD
+    Logic Flow:
+    1. Find where Camera 1 is located in the 3D world (C1).
+    2. Find where Camera 1 appears inside Camera 2's image (Epipole e2).
+    3. Construct F to map pixels from Cam 1 to lines in Cam 2 passing through e2.
+    4. Clean up mathematical noise (Rank-2 constraint).
 
     Args:
-        P1: First projection matrix (3, 4)
-        P2: Second projection matrix (3, 4)
+        P1: Projection matrix of the first drone (3x4).
+        P2: Projection matrix of the second drone (3x4).
 
     Returns:
-        F: Fundamental matrix (3, 3) with rank 2
+        F: The 3x3 Fundamental Matrix.
+
+    Note: Camera center can also be computed from R, t as C = -R.T @ t
+    (see CameraCalibration.camera_center in ingestion/models.py).
+    We use SVD here to avoid dependency on the ingestion module.
     """
     assert P1.shape == (3, 4), f"P1 must be (3, 4), got {P1.shape}"
     assert P2.shape == (3, 4), f"P2 must be (3, 4), got {P2.shape}"
 
-    # Step 1: Compute camera center C1 (null space of P1)
-    # P1 @ C1 = 0, so C1 is the right null vector of P1
-    # We use SVD: P1 = U @ S @ Vt, null space is last column of V
+    # Step 1: Find Camera 1's physical location (C1)
+    # Formula: P1 @ C1 = 0
+    # We are looking for the "Camera Center".
+    # Mathematically, this is the only 3D point that projects to "0" (disappears)
+    # because you cannot take a picture of the camera's own lens center.
+    # We use SVD to find this "Null Space".
+    # svd breaks P1 into U, S, Vt such that P1 = U @ S @ Vt
     _, _, Vt = np.linalg.svd(P1)
-    C1 = Vt[-1, :]  # Last row of Vt = last column of V, shape (4,)
+    C1 = Vt[-1, :]  # The last row of V^T is the solution C1 where P1 @ C1 = 0
 
-    # Step 2: Compute epipole in image 2
-    # e2 = P2 @ C1 (project camera 1 center to image 2)
+    # Step 2: Find the Epipole in Image 2 (e2)
+    # Formula: e2 = P2 @ C1
+    # The epipole is the projection of Camera 1's center onto Camera 2's image plane.
+    # It answers: "If Drone 2 took a picture of Drone 1, where would it be?"
     e2 = P2 @ C1  # Shape: (3,)
 
-    # Step 3: Construct skew-symmetric matrix [e2]_x
-    # [e2]_x represents the cross product operator
-    # For vector e2 = [a, b, c], [e2]_x is:
-    #     [  0, -c,  b ]
-    #     [  c,  0, -a ]
-    #     [ -b,  a,  0 ]
+    # Step 3: Create a helper matrix for drawing lines
+    # Formula: Line = e2 x Point  =>  Matrix [e2]_x
+    # We need to compute a "Cross Product" to draw a line between the epipole and a point.
+    # Computers prefer matrix multiplication, so we convert vector e2 into a special
+    # "Skew-Symmetric" matrix. Multiplying by this matrix is the same as doing a cross product.
     e2_cross = np.array(
         [[0, -e2[2], e2[1]], [e2[2], 0, -e2[0]], [-e2[1], e2[0], 0]], dtype=np.float64
     )
 
-    # Step 4: Compute pseudoinverse of P1
-    # P1^+ = P1^T @ (P1 @ P1^T)^(-1) for full-rank P1
-    # But np.linalg.pinv is more numerically stable
+    # Step 4: Compute the raw Fundamental Matrix F
+    # Formula: F = [e2]_x @ P2 @ P1^+
+    # The logic is a chain reaction:
+    # 1. Take a pixel from Image 1.
+    # 2. 'P1_pinv' (P1^+) sends it back into 3D space (Pseudo-Inverse).
+    # 3. 'P2' projects that 3D point onto Image 2.
+    # 4. 'e2_cross' ([e2]_x) connects that point to the epipole to form a line.
     P1_pinv = np.linalg.pinv(P1)  # Shape: (4, 3)
-
-    # Step 5: Compute F = [e2]_x @ P2 @ P1^+
     F = e2_cross @ P2 @ P1_pinv  # Shape: (3, 3)
 
-    # Step 6: Enforce rank-2 constraint
-    # F should have rank 2 (det(F) = 0)
-    # We enforce this by zeroing the smallest singular value
+    # Step 5: Clean up noise (Enforce Rank-2)
+    # Formula: F_clean = U @ diag(s1, s2, 0) @ Vt
+    # Due to computer rounding errors, the calculated F might be slightly "broken" (Rank 3).
+    # A valid F matrix must have Rank 2 (it maps points to lines, not points to points).
+    # We use SVD to find the smallest noise component (sigma 3) and delete it.
     U, S, Vt = np.linalg.svd(F)
-    S[2] = 0.0  # Zero smallest singular value
-    F_rank2 = U @ np.diag(S) @ Vt
+    S[2] = 0.0  # Zero out the smallest singular value (the noise)
+    F_rank2 = U @ np.diag(S) @ Vt  # Rebuild the perfect Rank-2 matrix,
+    # we want f to give us lines that pass through the epipole, just like in Ax =0, we want to remove the noise that makes it not pass through the epipole.
 
     return F_rank2
 
@@ -86,9 +78,6 @@ def compute_fundamental_matrix_batch(
 ) -> dict[tuple[int, int], np.ndarray]:
     """
     Compute fundamental matrices for all camera pairs.
-
-    For N cameras, this computes N*(N-1)/2 fundamental matrices
-    (one for each unique pair).
 
     Args:
         projection_matrices: {drone_id: projection_matrix (3, 4)}
@@ -100,7 +89,6 @@ def compute_fundamental_matrix_batch(
     result = {}
     drone_ids = sorted(projection_matrices.keys())
 
-    # Iterate over all unique pairs (i, j) where i < j
     for i in range(len(drone_ids)):
         for j in range(i + 1, len(drone_ids)):
             drone_id_i = drone_ids[i]
@@ -109,7 +97,6 @@ def compute_fundamental_matrix_batch(
             P_i = projection_matrices[drone_id_i]
             P_j = projection_matrices[drone_id_j]
 
-            # Compute F_ij: maps points from camera i to lines in camera j
             F_ij = compute_fundamental_matrix(P_i, P_j)
 
             result[(drone_id_i, drone_id_j)] = F_ij

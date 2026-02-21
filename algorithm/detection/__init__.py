@@ -10,32 +10,26 @@ Components:
 
 Usage:
     from detection import BatchDetector, Detection, DetectionSet
-    from ingestion import SynchronizedFrameSet
 
-    # Create detector
-    detector = BatchDetector(weights_path="weights/yolov8n.pt")
+    batch_detector = BatchDetector()
 
-    # Process synchronized frames
-    sync_set = synchronizer_queue.get()
-    all_detections = detector.process(sync_set)
+    all_detections = batch_detector.process(sync_set)
 
-    # Access detections
     for drone_id, detection_set in all_detections.items():
         for detection in detection_set.detections:
-            print(f"Person at {detection.center}, conf={detection.confidence}")
+            logger.info("Person at %s, conf=%.2f", detection.bbox.center, detection.confidence)
 """
 
 # Data models
-from detection.models import (
+from algorithm.detection.models import (
     BoundingBox,
     Detection,
     DetectionSet,
-    compute_iou_matrix,
 )
 
 # Detectors
-from detection.yolo_detector import YOLODetector
-from detection.batch_detector import BatchDetector
+from algorithm.detection.yolo_detector import YOLODetector
+from algorithm.detection.batch_detector import BatchDetector
 
 
 __all__ = [
@@ -43,7 +37,6 @@ __all__ = [
     "BoundingBox",
     "Detection",
     "DetectionSet",
-    "compute_iou_matrix",
     # Detectors
     "YOLODetector",
     "BatchDetector",

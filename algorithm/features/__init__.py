@@ -18,7 +18,7 @@ Usage:
         logger.info("Extracted WCH for person at %s", pf.bbox_center)
 """
 
-from features.models import PersonFeatures, FrameFeatures
-from features.wch_extractor import WCHExtractor
+from algorithm.features.models import PersonFeatures, FrameFeatures
+from algorithm.features.wch_extractor import WCHExtractor
 
 __all__ = ["WCHExtractor", "PersonFeatures", "FrameFeatures"]

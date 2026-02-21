@@ -18,8 +18,8 @@ import struct
 import threading
 from typing import Optional
 
-from ingestion.protocol_decoder import ProtocolDecoder, HEADER_FORMAT
-from config import settings
+from algorithm.ingestion.protocol_decoder import ProtocolDecoder, HEADER_FORMAT
+from algorithm.config import settings
 
 
 logger = logging.getLogger(__name__)

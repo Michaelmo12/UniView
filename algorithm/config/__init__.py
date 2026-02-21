@@ -4,12 +4,15 @@ Configuration Module
 Centralizes all configurable parameters.
 """
 
-from config.settings import (
+from algorithm.config.settings import (
     settings,
     Settings,
     NetworkConfig,
     IngestionConfig,
     DetectionConfig,
+    FeatureConfig,
+    FusionConfig,
+    ReconstructionConfig,
 )
 
 __all__ = [
@@ -18,4 +21,7 @@ __all__ = [
     "NetworkConfig",
     "IngestionConfig",
     "DetectionConfig",
+    "FeatureConfig",
+    "FusionConfig",
+    "ReconstructionConfig",
 ]

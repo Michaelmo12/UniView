@@ -22,15 +22,8 @@ import time
 from collections import defaultdict
 from typing import Optional
 
-try:
-    from ingestion.models import DroneFrame, SynchronizedFrameSet
-    from config import settings
-except ImportError:
-    from models import DroneFrame, SynchronizedFrameSet
-    import sys
-
-    sys.path.insert(0, "..")
-    from config import settings
+from algorithm.ingestion.models import DroneFrame, SynchronizedFrameSet
+from algorithm.config import settings
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +42,7 @@ class FrameSynchronizer:
         - start() spawns background thread that processes input queue
         - stop() signals thread to exit
     """
-
+    # Keep track of recently outputted frame_nums to avoid processing late arrivals
     MAX_OUTPUTTED_HISTORY = 1000
 
     def __init__(self, input_queue: queue.Queue, output_queue: queue.Queue):
@@ -301,10 +294,7 @@ class FrameSynchronizer:
 
 if __name__ == "__main__":
 
-    try:
-        from ingestion.tcp_receiver import TCPReceiver
-    except ImportError:
-        from tcp_receiver import TCPReceiver
+    from ingestion.tcp_receiver import TCPReceiver
 
     # Configure logging
     logging.basicConfig(

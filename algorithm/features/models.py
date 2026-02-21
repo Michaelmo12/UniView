@@ -12,9 +12,9 @@ class PersonFeatures:
     frame_num: int
     local_id: int
     wch: np.ndarray  # 96-dimensional L2-normalized WCH descriptor
-    bbox_center: tuple[float, float]
+    bbox_center: tuple[float, float] # (x, y) center of the bounding box in image coordinates
     projection_matrix: np.ndarray  # (3, 4)
-    confidence: float  # Detection confidence (passed through for downstream filtering)
+    confidence: float  # detection confidence
 
 
 @dataclass

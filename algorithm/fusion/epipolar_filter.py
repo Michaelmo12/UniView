@@ -1,31 +1,8 @@
-"""
-Epipolar Constraint Filter
-
-Filters candidate matches using geometric epipolar constraint.
-
-The epipolar constraint says that if point p1 in camera 1 corresponds to
-point p2 in camera 2, then p2 must lie on the epipolar line defined by F @ p1.
-
-We measure the point-to-line distance. If it's below a threshold (e.g., 5 pixels),
-the match is geometrically plausible.
-
-White-box: Standard point-to-line distance formula in 2D.
-"""
-
-import sys
-from pathlib import Path
-
-# Ensure algorithm directory is in path for relative imports
-_FUSION_DIR = Path(__file__).parent
-_ALGORITHM_DIR = _FUSION_DIR.parent
-if str(_ALGORITHM_DIR) not in sys.path:
-    sys.path.insert(0, str(_ALGORITHM_DIR))
-
 import numpy as np
 
-from features.models import PersonFeatures
-from fusion.models import CrossCameraMatch
-from fusion.fundamental_matrix import compute_fundamental_matrix
+from algorithm.features.models import PersonFeatures
+from algorithm.fusion.models import CrossCameraMatch
+from algorithm.fusion.fundamental_matrix import compute_fundamental_matrix
 
 
 def point_to_line_distance(point: np.ndarray, line: np.ndarray) -> float:
@@ -45,17 +22,14 @@ def point_to_line_distance(point: np.ndarray, line: np.ndarray) -> float:
     Returns:
         Perpendicular distance in pixels
     """
-    # Ensure point is in homogeneous coords (x, y, 1)
     if len(point) == 2:
         point = np.array([point[0], point[1], 1.0])
 
-    # Compute numerator: |ax + by + c| = |line^T @ point|
     numerator = np.abs(line @ point)
 
-    # Compute denominator: sqrt(a^2 + b^2)
     denominator = np.sqrt(line[0] ** 2 + line[1] ** 2)
 
-    # Handle degenerate case (line at infinity)
+    # line at infinity
     if denominator < 1e-10:
         return np.inf
 
@@ -85,7 +59,6 @@ def compute_epipolar_distance(
     Returns:
         Symmetric epipolar distance (pixels)
     """
-    # Get bbox centers as points
     x1 = np.array([features1.bbox_center[0], features1.bbox_center[1], 1.0])
     x2 = np.array([features2.bbox_center[0], features2.bbox_center[1], 1.0])
 
@@ -127,13 +100,10 @@ def filter_by_epipolar_constraint(
         - is_valid: True if distance <= threshold
         - epipolar_distance: Computed distance in pixels
     """
-    # Compute fundamental matrix from projection matrices
     F = compute_fundamental_matrix(features1.projection_matrix, features2.projection_matrix)
 
-    # Compute epipolar distance
     distance = compute_epipolar_distance(features1, features2, F)
 
-    # Check threshold
     is_valid = distance <= threshold
 
     return is_valid, distance
@@ -162,32 +132,25 @@ def filter_matches_batch(
     """
     matches = []
 
-    # Iterate over all pairs
     for i in range(len(features_list)):
         for j in range(i + 1, len(features_list)):
             feat1 = features_list[i]
             feat2 = features_list[j]
 
-            # Skip if same camera
             if feat1.drone_id == feat2.drone_id:
                 continue
 
-            # Check epipolar constraint
             is_valid, distance = filter_by_epipolar_constraint(feat1, feat2, threshold)
 
-            # Create match (appearance_score will be filled by next stage)
-            match = CrossCameraMatch(
-                drone_id_a=feat1.drone_id,
-                drone_id_b=feat2.drone_id,
-                local_id_a=feat1.local_id,
-                local_id_b=feat2.local_id,
-                epipolar_distance=distance,
-                appearance_score=0.0,  # Not yet computed
-                is_valid=is_valid,
-            )
-
-            # Only keep valid matches
             if is_valid:
+                match = CrossCameraMatch(
+                    drone_id_a=feat1.drone_id,
+                    drone_id_b=feat2.drone_id,
+                    local_id_a=feat1.local_id,
+                    local_id_b=feat2.local_id,
+                    epipolar_distance=distance,
+                    appearance_score=0.0,  # Not yet computed (filled by appearance matcher)
+                )
                 matches.append(match)
 
     return matches
