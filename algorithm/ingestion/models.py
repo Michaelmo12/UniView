@@ -201,10 +201,6 @@ class SynchronizedFrameSet:
         return {d: f.calibration for d, f in self.frames.items()}
 
 
-# =============================================================================
-# DEBUG / TESTING
-# =============================================================================
-
 if __name__ == "__main__":
     print("Testing Ingestion Models")
     print("=" * 50)

@@ -32,13 +32,13 @@ algorithm_dir = Path(__file__).parent
 if str(algorithm_dir) not in sys.path:
     sys.path.insert(0, str(algorithm_dir))
 
-from config.settings import settings
-from detection.batch_detector import BatchDetector
-from features.wch_extractor import WCHExtractor
-from fusion.cross_camera_matcher import CrossCameraMatcher
-from ingestion.models import CameraCalibration, DroneFrame, SynchronizedFrameSet
-from ingestion.tcp_receiver import TCPReceiver
-from ingestion.synchronizer import FrameSynchronizer
+from algorithm.config.settings import settings
+from algorithm.detection.batch_detector import BatchDetector
+from algorithm.features.wch_extractor import WCHExtractor
+from algorithm.fusion.cross_camera_matcher import CrossCameraMatcher
+from algorithm.ingestion.models import CameraCalibration, DroneFrame, SynchronizedFrameSet
+from algorithm.ingestion.tcp_receiver import TCPReceiver
+from algorithm.ingestion.synchronizer import FrameSynchronizer
 
 logging.basicConfig(
     level=logging.INFO,
