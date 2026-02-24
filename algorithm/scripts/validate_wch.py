@@ -24,9 +24,9 @@ import cv2
 import numpy as np
 
 from features import WCHExtractor
-from config.settings import settings
-from detection.models import BoundingBox, Detection, DetectionSet
-from ingestion.models import DroneFrame, CameraCalibration
+from algorithm.config.settings import settings
+from algorithm.detection.models import BoundingBox, Detection, DetectionSet
+from algorithm.ingestion.models import DroneFrame, CameraCalibration
 
 # Setup logging
 logging.basicConfig(
