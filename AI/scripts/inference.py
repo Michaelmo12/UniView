@@ -7,7 +7,7 @@ from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator
 
 # Load model
-model = YOLO("E:/projectants/UniView/AI/models/trained/baseline/weights/best.pt")
+model = YOLO("E:/projectants/UniView/AI/models/trained/final/weights/best.pt")
 
 # Run on image - D4 frame 100
 results = model.predict(

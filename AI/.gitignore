@@ -2,6 +2,7 @@ datasets/VisDrone
 #datasets/MATRIX_yolo_format
 
 models/pretrained
+models/final
 models/trained
 *.pt
 

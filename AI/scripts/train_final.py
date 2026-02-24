@@ -94,7 +94,7 @@ def run_final_training():
     results = model.train(
         # Dataset
         data=str(DATASET_YAML),
-        # Training params (from Optuna trial 1)
+        # Training params (from Optuna)
         epochs=final_cfg["epochs"],
         batch=BEST_PARAMS["batch"],
         imgsz=640,
