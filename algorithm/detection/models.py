@@ -88,7 +88,9 @@ class Detection:
     drone_id: int
     frame_num: int
     local_id: Optional[int] = None
-    features: Optional[np.ndarray] = None  # WCH feature vector, set by feature extraction stage
+    features: Optional[np.ndarray] = (
+        None  # WCH feature vector, set by feature extraction stage
+    )
 
     def __post_init__(self):
         assert (
@@ -118,7 +120,7 @@ class DetectionSet:
     Attributes:
         drone_id: Which drone these detections came from
         frame_num: Frame sequence number
-        detections: List of Detection objects    
+        detections: List of Detection objects
         inference_time: How long YOLO took (seconds)
     """
 
@@ -147,7 +149,7 @@ class DetectionSet:
 
         return np.array([det.bbox.center for det in self.detections], dtype=np.float32)
 
-    def filter_by_confidence(self, min_confidence: float) -> "DetectionSet":        
+    def filter_by_confidence(self, min_confidence: float) -> "DetectionSet":
         filtered = [det for det in self.detections if det.confidence >= min_confidence]
 
         return DetectionSet(
@@ -199,7 +201,6 @@ if __name__ == "__main__":
     )
     logger.info(det_set)
     logger.info("Centers: %s", det_set.get_centers())
-
 
     logger.info("\n" + "=" * 60)
     logger.info("All tests passed!")
