@@ -47,7 +47,9 @@ def compute_fundamental_matrix(P1: np.ndarray, P2: np.ndarray) -> np.ndarray:
     # Computers prefer matrix multiplication, so we convert vector e2 into a special
     # "Skew-Symmetric" matrix. Multiplying by this matrix is the same as doing a cross product.
     e2_cross = np.array(
-        [[0, -e2[2], e2[1]], [e2[2], 0, -e2[0]], [-e2[1], e2[0], 0]], dtype=np.float64
+        [[0, -e2[2], e2[1]],
+         [e2[2], 0, -e2[0]],
+         [-e2[1], e2[0], 0]], dtype=np.float64
     )
 
     # Step 4: Compute the raw Fundamental Matrix F
