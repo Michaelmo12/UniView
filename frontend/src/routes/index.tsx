@@ -3,6 +3,7 @@ import { ProtectedRoute } from "../components/common";
 import Home from "../pages/Home.tsx";
 import Login from "../pages/Login.tsx";
 import AddUser from "../pages/AddUser.tsx";
+import Surveillance from "../pages/Surveillance.tsx";
 
 function AppRoutes() {
   return (
@@ -21,6 +22,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute adminOnly>
             <AddUser />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/surveillance"
+        element={
+          <ProtectedRoute>
+            <Surveillance />
           </ProtectedRoute>
         }
       />
