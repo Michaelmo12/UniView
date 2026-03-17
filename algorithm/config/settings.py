@@ -52,7 +52,7 @@ class FusionConfig:
     """Cross-camera fusion stage configuration."""
 
     epipolar_threshold: float = 5.0  # Max point-to-epiline distance (pixels) for geometric match
-    appearance_threshold: float = 0.7  # Min WCH cosine similarity for appearance match
+    appearance_threshold: float = 0.8 # Min WCH cosine similarity for appearance match
     min_cameras: int = 2  # Minimum cameras that must observe a person for valid match
 
 
@@ -63,6 +63,17 @@ class ReconstructionConfig:
     max_reprojection_error: float = 10.0  # Max avg reprojection error (pixels) to accept triangulation
     dbscan_eps: float = 2.0  # DBSCAN epsilon (meters) -- max distance between points in cluster
     dbscan_min_samples: int = 2  # DBSCAN min_samples -- minimum 2 points to form cluster (isolated points become noise)
+
+
+@dataclass
+class TrackingConfig:
+    """Temporal tracking stage configuration."""
+
+    n_init: int = 3               # Consecutive hits to confirm (conservative, reduces false positives)
+    max_age: int = 10             # Max frames coasting before deletion (generous, handles brief occlusions at 2 FPS)
+    max_distance: float = 2.0     # Max association distance in meters (matches DBSCAN eps, allows ~1.5m/frame movement)
+    process_noise: float = 0.1    # Kalman Q diagonal scale (low = assumes smooth motion)
+    measurement_noise: float = 0.5  # Kalman R diagonal scale (accounts for triangulation variance ~0.5m)
 
 
 class Settings:
@@ -76,7 +87,7 @@ class Settings:
     - features: Feature extraction settings
     - fusion: Cross-camera fusion settings
     - reconstruction: Triangulation and clustering settings
-    - tracking: (TODO) Kalman filter settings
+    - tracking: Kalman filter and association settings
     """
 
     _instance = None
@@ -102,6 +113,7 @@ class Settings:
         self.features = FeatureConfig()
         self.fusion = FusionConfig()
         self.reconstruction = ReconstructionConfig()
+        self.tracking = TrackingConfig()
 
         Settings._initialized = True
 
