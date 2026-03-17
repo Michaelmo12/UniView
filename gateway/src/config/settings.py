@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     GATEWAY_HOST: str = "0.0.0.0"
     GATEWAY_PORT: int = 8080
 
+    # Algorithm WebSocket URL
+    ALGORITHM_WS_URL: str = "ws://localhost:8001/ws"
+
     class Config:
         env_file = ".env"
         case_sensitive = True
