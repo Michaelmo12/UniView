@@ -76,6 +76,15 @@ class TrackingConfig:
     measurement_noise: float = 0.5  # Kalman R diagonal scale (accounts for triangulation variance ~0.5m)
 
 
+@dataclass
+class OutputConfig:
+    """WebSocket output configuration."""
+
+    websocket_port: int = 8001   # Port for uvicorn to bind
+    jpeg_quality: int = 70       # JPEG compression quality (0-100)
+    host: str = "0.0.0.0"        # Bind address for uvicorn
+
+
 class Settings:
     """
     Root settings container with Singleton Pattern.
@@ -114,6 +123,7 @@ class Settings:
         self.fusion = FusionConfig()
         self.reconstruction = ReconstructionConfig()
         self.tracking = TrackingConfig()
+        self.output = OutputConfig()
 
         Settings._initialized = True
 
