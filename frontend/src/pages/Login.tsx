@@ -68,9 +68,6 @@ function Login() {
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
           />
-          <a href="#" className="login-forgot-link">
-            Forgot password?
-          </a>
         </div>
 
         {error && <div className="error-message">{error}</div>}

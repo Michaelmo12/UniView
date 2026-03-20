@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Card, Input, Button, InfoBox } from "../components/common";
+import { Input, Button } from "../components/common";
 import { authAPI } from "../services/api/auth";
+import "./AddUser.css";
 
 function AddUser() {
   const [fullName, setFullName] = useState("");
@@ -51,12 +52,13 @@ function AddUser() {
   };
 
   return (
-    <div className="page-content">
-      <Card
-        title="Add New User"
-        subtitle="Create a new user account (Admin Only)"
-        maxWidth="500px"
-      >
+    <div className="adduser-page">
+      <div className="adduser-header">
+        <h1 className="adduser-title">Add User</h1>
+        <p className="adduser-subtitle">Create a new user account — Admin only</p>
+      </div>
+
+      <div className="adduser-card">
         <form onSubmit={handleSubmit} className="form-container">
           <Input
             id="fullName"
@@ -98,32 +100,34 @@ function AddUser() {
             required
           />
 
-          <div className="input-group">
-            <label htmlFor="role" className="input-label">User Role</label>
-            <select
-              id="role"
-              className="input-field"
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'user' | 'admin')}
-              required
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
+          <div>
+            <span className="role-label">User Role</span>
+            <div className="role-toggle">
+              <button
+                type="button"
+                className={`role-btn ${role === 'user' ? 'role-btn--active' : ''}`}
+                onClick={() => setRole('user')}
+              >
+                User
+              </button>
+              <button
+                type="button"
+                className={`role-btn role-btn--admin ${role === 'admin' ? 'role-btn--active' : ''}`}
+                onClick={() => setRole('admin')}
+              >
+                Admin
+              </button>
+            </div>
           </div>
 
-          {error && <div className="error-message">{error}</div>}
-          {success && (
-            <InfoBox variant="success">
-              {success}
-            </InfoBox>
-          )}
+          {error && <div className="adduser-error">{error}</div>}
+          {success && <div className="adduser-success">{success}</div>}
 
           <Button type="submit" isLoading={loading}>
             {loading ? "Creating User..." : "Create User"}
           </Button>
         </form>
-      </Card>
+      </div>
     </div>
   );
 }

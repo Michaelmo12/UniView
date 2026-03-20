@@ -1,52 +1,55 @@
-import { PageHeader, Grid, StreamCard, InfoBox } from "../components/common";
+import "./Home.css";
 
-function Home() {
-  // Example stream data - you can replace this with real API data
-  const mockStreams = [
-    { id: 1, title: 'Camera 001', detections: 3, isActive: true, color: 'blue' as const },
-    { id: 2, title: 'Camera 002', detections: 1, isActive: true, color: 'green' as const },
-    { id: 3, title: 'Camera 003', detections: 0, isActive: true, color: 'orange' as const },
-    { id: 4, title: 'Camera 004', detections: 5, isActive: true, color: 'purple' as const },
-    { id: 5, title: 'Camera 005', detections: 2, isActive: false, color: 'blue' as const },
-    { id: 6, title: 'Camera 006', detections: 0, isActive: true, color: 'yellow' as const },
-  ];
+const DRONE_IDS = [1, 2, 3, 4, 5, 6, 7, 8];
 
-  const handleViewStream = (streamId: number) => {
-    console.log('View stream:', streamId);
-    // Add navigation logic here
-  };
+function DroneCell({ id }: { id: number }) {
+  const isLive = false; // wired to stream data in future
 
   return (
-    <div className="page-content">
-      <PageHeader
-        title="UniView - Surveillance Dashboard"
-        subtitle="Real-time monitoring and tracking system"
-      />
+    <div className={`drone-cell ${isLive ? "drone-cell--live" : "drone-cell--offline"}`}>
+      <div className="drone-cell__scanlines" />
+      <div className="drone-cell__corners" />
 
-      <Grid>
-        {mockStreams.map((stream) => (
-          <StreamCard
-            key={stream.id}
-            id={stream.id}
-            title={stream.title}
-            detections={stream.detections}
-            isActive={stream.isActive}
-            color={stream.color}
-            onViewStream={() => handleViewStream(stream.id)}
-          />
-        ))}
-      </Grid>
+      <div className="drone-cell__header">
+        <span className="drone-cell__id">DRONE-{String(id).padStart(2, "0")}</span>
+        <span className={`drone-cell__status ${isLive ? "drone-cell__status--live" : ""}`}>
+          {isLive ? (
+            <><span className="drone-cell__rec-dot" />REC</>
+          ) : (
+            "NO SIGNAL"
+          )}
+        </span>
+      </div>
 
-      <InfoBox>
-        <p>
-          💡 <strong>Demo Mode:</strong> זהו דאשבורד דמו למעקב אחר אובייקטים.
-          כל קופסה מייצגת מצלמה עם מספר האובייקטים שזוהו (TARGETS).
-          כאשר תחבר את ה-API האמיתי, הנתונים יתעדכנו בזמן אמת עם מספר האנשים/אובייקטים שמזוהים בכל סטרים.
-        </p>
-      </InfoBox>
+      <div className="drone-cell__body">
+        {!isLive && (
+          <div className="drone-cell__nosignal">
+            <div className="drone-cell__crosshair" />
+          </div>
+        )}
+      </div>
+
+      <div className="drone-cell__footer">
+        <span>1920×1080</span>
+        <span>CH-{String(id).padStart(2, "0")}</span>
+        <span>30FPS</span>
+      </div>
+    </div>
+  );
+}
+
+function Home() {
+  return (
+    <div className="uniview-dashboard">
+      <main className="uniview-grid-wrapper">
+        <div className="uniview-grid">
+          {DRONE_IDS.map((id) => (
+            <DroneCell key={id} id={id} />
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
 
 export default Home;
-

@@ -6,48 +6,45 @@
 
 .card {
   width: 100%;
-  background: rgba(15, 21, 53, 0.9);
-  border: 2px solid var(--neon-blue);
-  border-radius: 12px;
-  padding: 40px;
-  box-shadow: 0 0 30px rgba(0, 212, 255, 0.2),
-    inset 0 0 20px rgba(0, 212, 255, 0.05);
-  backdrop-filter: blur(10px);
-  animation: slideUp 0.5s ease-out;
+  background: rgba(13, 13, 13, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 6px;
+  padding: 36px 40px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  animation: slideUp 0.4s ease-out;
 }
 
 .card-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 28px;
 }
 
 .card-header h2 {
-  margin: 0 0 8px 0;
-  font-size: 24px;
+  margin: 0 0 6px 0;
+  font-family: var(--font-condensed, 'IBM Plex Sans Condensed', sans-serif);
+  font-size: 1.3rem;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #eeeeee;
+  background: none;
+  -webkit-text-fill-color: #eeeeee;
 }
 
 .card-header p {
   margin: 0;
-  font-size: 14px;
-  color: #a0aec0;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
 }
 
 .card-content {
-  /* Main body area of the card (text, forms, and actions). Add layout and spacing styles here. */
+  /* Main body area */
 }
 
-/* Responsive design only works on screens 480px wide or less */
 @media (max-width: 480px) {
   .card {
-    padding: 30px 20px;
-  }
-
-  .card-header h2 {
-    font-size: 20px;
+    padding: 28px 20px;
   }
 }

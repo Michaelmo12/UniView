@@ -2,25 +2,28 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .login-forgot-link {
-  color: var(--neon-pink);
+  color: rgba(0, 255, 136, 0.35);
   text-decoration: none;
-  transition: opacity 0.2s;
+  font-size: 12px;
+  transition: color 0.15s ease;
 }
 
 .login-forgot-link:hover {
-  opacity: 0.8;
+  color: rgba(0, 255, 136, 0.7);
+  text-decoration: none;
 }
 
 .error-message {
-  padding: 12px;
-  background: rgba(255, 68, 68, 0.1);
-  border: 1px solid var(--neon-orange);
-  border-radius: 8px;
-  color: var(--neon-orange);
-  font-size: 14px;
+  padding: 10px 14px;
+  background: rgba(255, 68, 102, 0.05);
+  border: 1px solid rgba(255, 68, 102, 0.25);
+  border-radius: 4px;
+  color: rgba(255, 68, 102, 0.9);
+  font-size: 12px;
   text-align: center;
+  letter-spacing: 0.3px;
 }

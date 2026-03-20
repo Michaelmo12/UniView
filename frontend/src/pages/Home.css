@@ -1,0 +1,227 @@
+/* ─── Dashboard Shell ─────────────────────────────────────────── */
+.uniview-dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 104px);
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  color: #555;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Grid Wrapper ───────────────────────────────────────────── */
+.uniview-grid-wrapper {
+  flex: 1;
+  padding: 12px;
+}
+
+.uniview-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+/* ─── Drone Cell ─────────────────────────────────────────────── */
+.drone-cell {
+  position: relative;
+  background: #0f0f0f;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Corner brackets — top-left / top-right */
+.drone-cell::before,
+.drone-cell::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  z-index: 5;
+  pointer-events: none;
+  transition: width 0.15s ease, height 0.15s ease, border-color 0.15s ease;
+}
+
+.drone-cell::before {
+  top: 0; left: 0;
+  border-top: 1px solid rgba(0, 255, 136, 0.25);
+  border-left: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+.drone-cell::after {
+  top: 0; right: 0;
+  border-top: 1px solid rgba(0, 255, 136, 0.25);
+  border-right: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+/* Corner brackets — bottom */
+.drone-cell__corners::before,
+.drone-cell__corners::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  z-index: 5;
+  pointer-events: none;
+  transition: width 0.15s ease, height 0.15s ease, border-color 0.15s ease;
+}
+
+.drone-cell__corners::before {
+  bottom: 0; left: 0;
+  border-bottom: 1px solid rgba(0, 255, 136, 0.25);
+  border-left: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+.drone-cell__corners::after {
+  bottom: 0; right: 0;
+  border-bottom: 1px solid rgba(0, 255, 136, 0.25);
+  border-right: 1px solid rgba(0, 255, 136, 0.25);
+}
+
+/* Hover */
+.drone-cell:hover::before,
+.drone-cell:hover::after {
+  width: 16px; height: 16px;
+  border-color: rgba(0, 255, 136, 0.65);
+}
+
+.drone-cell:hover .drone-cell__corners::before,
+.drone-cell:hover .drone-cell__corners::after {
+  width: 16px; height: 16px;
+  border-color: rgba(0, 255, 136, 0.65);
+}
+
+.drone-cell:hover {
+  box-shadow: 0 0 18px rgba(0, 255, 136, 0.07), inset 0 0 24px rgba(0, 255, 136, 0.03);
+}
+
+/* Live tile */
+.drone-cell--live::before,
+.drone-cell--live::after,
+.drone-cell--live .drone-cell__corners::before,
+.drone-cell--live .drone-cell__corners::after {
+  border-color: rgba(0, 255, 136, 0.75);
+}
+
+.drone-cell--live {
+  box-shadow: 0 0 22px rgba(0, 255, 136, 0.1), inset 0 0 32px rgba(0, 255, 136, 0.04);
+}
+
+/* Scanline overlay */
+.drone-cell__scanlines {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.35) 3px,
+    rgba(0, 0, 0, 0.35) 4px
+  );
+}
+
+/* Cell header */
+.drone-cell__header {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 9px;
+  z-index: 6;
+  background: linear-gradient(180deg, rgba(10,10,10,0.75) 0%, transparent 100%);
+}
+
+.drone-cell__id {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: rgba(0, 255, 136, 0.6);
+  font-weight: 500;
+}
+
+.drone-cell__status {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.drone-cell__status--live {
+  color: #00ff88;
+}
+
+.drone-cell__rec-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ff4466;
+  box-shadow: 0 0 5px rgba(255, 68, 102, 0.8);
+  animation: recBlink 1.1s ease-in-out infinite;
+}
+
+@keyframes recBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.15; }
+}
+
+/* Cell body */
+.drone-cell__body {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.drone-cell__nosignal {
+  opacity: 0.1;
+}
+
+.drone-cell__crosshair {
+  width: 20px;
+  height: 20px;
+  position: relative;
+}
+
+.drone-cell__crosshair::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 0; right: 0;
+  height: 1px;
+  background: #00ff88;
+  transform: translateY(-50%);
+}
+
+.drone-cell__crosshair::after {
+  content: '';
+  position: absolute;
+  left: 50%; top: 0; bottom: 0;
+  width: 1px;
+  background: #00ff88;
+  transform: translateX(-50%);
+}
+
+/* Cell footer */
+.drone-cell__footer {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 9px;
+  z-index: 6;
+  background: linear-gradient(0deg, rgba(10,10,10,0.75) 0%, transparent 100%);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.1);
+}
+
+.drone-cell--live .drone-cell__footer {
+  color: rgba(0, 255, 136, 0.4);
+}

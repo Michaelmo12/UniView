@@ -1,26 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 :root {
-  /* Neon Colors from image */
-  --neon-blue: #00d4ff;
-  --neon-green: #00ff88;
-  --neon-purple: #b968ff;
-  --neon-orange: #ff8844;
-  --neon-yellow: #ffeb3b;
-  --neon-pink: #ff00ff;
+  /* Accent colors */
+  --neon-blue:   #00d4ff;   /* cyan — links, secondary accents   */
+  --neon-green:  #00ff88;   /* green — primary UI, live, online  */
+  --neon-orange: #ff8844;   /* orange — warnings, admin          */
+  --neon-purple: #b968ff;   /* purple — secondary                */
+  --neon-pink:   #ff4466;   /* red-pink — errors, recording      */
+  --neon-yellow: #fbbf24;   /* yellow — alerts                   */
 
-  /* Dark Background Colors */
-  --bg-dark-primary: #0a0e27;
-  --bg-dark-secondary: #0f1535;
-  --bg-dark-tertiary: #1a1f3e;
+  /* Background hierarchy */
+  --bg-dark-primary:   #0d0d0d;
+  --bg-dark-secondary: #111111;
+  --bg-dark-tertiary:  #161616;
 
-  /* Grid Colors */
-  --grid-line-color: rgba(0, 212, 255, 0.15);
-  --grid-line-glow: rgba(0, 212, 255, 0.3);
+  /* Grid */
+  --grid-line-color: rgba(0, 200, 80, 0.14);
+  --grid-line-glow:  rgba(0, 200, 80, 0.14);
+
+  /* Typography */
+  --font-ui:   'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-condensed: 'IBM Plex Sans Condensed', 'IBM Plex Sans', sans-serif;
 }
 
 body {
   margin: 0;
   padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif;
+  font-family: var(--font-ui);
 
   /* Cyberpunk grid background */
   background:
@@ -45,47 +52,13 @@ body {
 
   background-size: 100px 100px, 100px 100px, 100% 100%;
   background-position: 0 0, 0 0, 0 0;
-  background-attachment: fixed;
+  background-attachment: scroll;
 
-  color: #e2e8f0;
+  color: #d8d8d8;
   overflow-x: hidden;
   position: relative;
 }
 
-/* Animated grid glow effect */
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent calc(100px - 1px),
-      var(--grid-line-glow) calc(100px - 1px),
-      var(--grid-line-glow) 100px
-    ),
-    repeating-linear-gradient(
-      0deg,
-      transparent 0,
-      transparent calc(100px - 1px),
-      var(--grid-line-glow) calc(100px - 1px),
-      var(--grid-line-glow) 100px
-    );
-  background-size: 100px 100px, 100px 100px;
-  opacity: 0;
-  animation: gridPulse 4s ease-in-out infinite;
-  pointer-events: none;
-  z-index: 0;
-}
-
-@keyframes gridPulse {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 0.3; }
-}
 
 @keyframes slideUp {
   from {
@@ -114,113 +87,61 @@ body::before {
   letter-spacing: 0.5px;
 
   /* Neon gradient text */
-  background: linear-gradient(135deg, var(--neon-blue) 0%, var(--neon-purple) 100%);
+  background: linear-gradient(135deg, var(--neon-green) 0%, var(--neon-green) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 
-  /* Strong neon glow effect */
-  filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5))
-          drop-shadow(0 0 20px rgba(0, 212, 255, 0.3))
-          drop-shadow(0 0 30px rgba(0, 212, 255, 0.2));
-
-  animation: neonFlicker 3s ease-in-out infinite;
-}
-
-@keyframes neonFlicker {
-  0%, 100% {
-    filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.5))
-            drop-shadow(0 0 20px rgba(0, 212, 255, 0.3))
-            drop-shadow(0 0 30px rgba(0, 212, 255, 0.2));
-  }
-  50% {
-    filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.7))
-            drop-shadow(0 0 25px rgba(0, 212, 255, 0.5))
-            drop-shadow(0 0 35px rgba(0, 212, 255, 0.3));
-  }
+  filter: drop-shadow(0 0 8px rgba(0, 255, 136, 0.35));
 }
 
 /* ===== PAGE PARAGRAPHS ===== */
 .page-content p {
   font-size: 1.125rem;
   line-height: 1.75;
-  color: #cbd5e0;
-  text-shadow: 0 0 5px rgba(203, 213, 224, 0.1);
+  color: #999999;
 }
 
 /* ===== NEON BOX COMPONENT STYLES ===== */
 /* Base neon box class for stream cards and other containers */
 .neon-box {
   position: relative;
-  background: rgba(10, 14, 39, 0.7);
-  border: 2px solid var(--neon-blue);
-  border-radius: 12px;
+  background: rgba(13, 13, 13, 0.92);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  border-radius: 6px;
   padding: 1.5rem;
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 0 10px var(--neon-blue),
-    0 0 20px rgba(0, 212, 255, 0.5),
-    inset 0 0 20px rgba(0, 212, 255, 0.05);
-  transition: all 0.3s ease;
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.08);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .neon-box:hover {
-  transform: translateY(-5px);
-  box-shadow:
-    0 0 20px var(--neon-blue),
-    0 0 40px rgba(0, 212, 255, 0.6),
-    0 0 60px rgba(0, 212, 255, 0.3),
-    inset 0 0 30px rgba(0, 212, 255, 0.1);
-  border-color: var(--neon-blue);
+  border-color: rgba(0, 255, 136, 0.4);
+  box-shadow: 0 0 24px rgba(0, 255, 136, 0.14);
 }
 
-/* Different neon colors for variety */
 .neon-box.green {
-  border-color: var(--neon-green);
-  box-shadow:
-    0 0 10px var(--neon-green),
-    0 0 20px rgba(0, 255, 136, 0.5),
-    inset 0 0 20px rgba(0, 255, 136, 0.05);
+  border-color: rgba(52, 211, 153, 0.2);
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.06);
 }
-
 .neon-box.green:hover {
-  box-shadow:
-    0 0 20px var(--neon-green),
-    0 0 40px rgba(0, 255, 136, 0.6),
-    0 0 60px rgba(0, 255, 136, 0.3),
-    inset 0 0 30px rgba(0, 255, 136, 0.1);
+  border-color: rgba(52, 211, 153, 0.4);
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.12);
 }
 
 .neon-box.purple {
-  border-color: var(--neon-purple);
-  box-shadow:
-    0 0 10px var(--neon-purple),
-    0 0 20px rgba(185, 104, 255, 0.5),
-    inset 0 0 20px rgba(185, 104, 255, 0.05);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.06);
 }
-
 .neon-box.purple:hover {
-  box-shadow:
-    0 0 20px var(--neon-purple),
-    0 0 40px rgba(185, 104, 255, 0.6),
-    0 0 60px rgba(185, 104, 255, 0.3),
-    inset 0 0 30px rgba(185, 104, 255, 0.1);
+  border-color: rgba(99, 102, 241, 0.4);
 }
 
 .neon-box.orange {
-  border-color: var(--neon-orange);
-  box-shadow:
-    0 0 10px var(--neon-orange),
-    0 0 20px rgba(255, 136, 68, 0.5),
-    inset 0 0 20px rgba(255, 136, 68, 0.05);
+  border-color: rgba(245, 158, 11, 0.2);
+  box-shadow: 0 0 16px rgba(245, 158, 11, 0.06);
 }
-
 .neon-box.orange:hover {
-  box-shadow:
-    0 0 20px var(--neon-orange),
-    0 0 40px rgba(255, 136, 68, 0.6),
-    0 0 60px rgba(255, 136, 68, 0.3),
-    inset 0 0 30px rgba(255, 136, 68, 0.1);
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 .neon-box.yellow {
@@ -273,7 +194,7 @@ body::before {
 
 /* ===== LINKS ===== */
 a {
-  color: var(--neon-blue);
+  color: var(--neon-green);
   text-decoration: none;
   transition: all 0.3s ease;
 }
@@ -284,7 +205,7 @@ a:hover {
 }
 
 .link-accent {
-  color: var(--neon-blue);
+  color: var(--neon-green);
   font-weight: 500;
 }
 
