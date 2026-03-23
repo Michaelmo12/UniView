@@ -17,7 +17,7 @@ class IngestionConfig:
     """Ingestion stage configuration."""
 
     num_drones: int = 8  # Expected number of drones
-    sync_timeout: float = 1.5  # Frame synchronization timeout (seconds)
+    sync_timeout: float = 2.0  # Frame synchronization timeout (seconds)
     max_buffer_size: int = 100  # Max frames buffered per synchronizer
 
 
@@ -42,8 +42,8 @@ class FeatureConfig:
     bins_per_channel: int = 16  # Histogram bins per HSV channel (16 x 3 x 2 = 96 dims)
     upper_weight: float = 0.6  # Torso region weight (more distinctive clothing)
     lower_weight: float = 0.4  # Legs region weight
-    min_crop_width: int = 20  # Minimum crop width (below this, histograms too noisy)
-    min_crop_height: int = 40  # Minimum crop height in pixels
+    min_crop_width: int = 8  # Minimum crop width (below this, histograms too noisy)
+    min_crop_height: int = 16  # Minimum crop height in pixels
     crop_resize_height: int = 128  # Resize crops to fixed height for consistent split
     crop_resize_width: int = 64  # Resize crops to fixed width
 
@@ -52,8 +52,10 @@ class FeatureConfig:
 class FusionConfig:
     """Cross-camera fusion stage configuration."""
 
-    epipolar_threshold: float = 5.0  # Max point-to-epiline distance (pixels) for geometric match
-    appearance_threshold: float = 0.8 # Min WCH cosine similarity for appearance match
+    epipolar_threshold: float = (
+        5.0  # Max point-to-epiline distance (pixels) for geometric match
+    )
+    appearance_threshold: float = 0.5  # Min WCH cosine similarity for appearance match
     min_cameras: int = 2  # Minimum cameras that must observe a person for valid match
 
 
@@ -61,20 +63,35 @@ class FusionConfig:
 class ReconstructionConfig:
     """3D reconstruction stage configuration."""
 
-    max_reprojection_error: float = 10.0  # Max avg reprojection error (pixels) to accept triangulation
-    dbscan_eps: float = 2.0  # DBSCAN epsilon (meters) -- max distance between points in cluster
-    dbscan_min_samples: int = 2  # DBSCAN min_samples -- minimum 2 points to form cluster (isolated points become noise)
+    max_reprojection_error: float = (
+        10.0  # Max avg reprojection error (pixels) to accept triangulation
+    )
+    dbscan_eps: float = (
+        2.0  # DBSCAN epsilon (meters) -- max distance between points in cluster
+    )
+    dbscan_min_samples: int = (
+        2  # DBSCAN min_samples -- minimum 2 points to form cluster (isolated points become noise)
+    )
 
 
 @dataclass
 class TrackingConfig:
     """Temporal tracking stage configuration."""
 
-    n_init: int = 3               # Consecutive hits to confirm (conservative, reduces false positives)
-    max_age: int = 10             # Max frames coasting before deletion (generous, handles brief occlusions at 2 FPS)
-    max_distance: float = 2.0     # Max association distance in meters (matches DBSCAN eps, allows ~1.5m/frame movement)
-    process_noise: float = 0.1    # Kalman Q diagonal scale (low = assumes smooth motion)
-    measurement_noise: float = 0.5  # Kalman R diagonal scale (accounts for triangulation variance ~0.5m)
+    n_init: int = (
+        3  # Consecutive hits to confirm (conservative, reduces false positives)
+    )
+    max_age: int = (
+        10  # Max frames coasting before deletion (generous, handles brief occlusions at 2 FPS)
+    )
+    max_distance: float = (
+        2.0  # Max association distance in meters (matches DBSCAN eps, allows ~1.5m/frame movement)
+    )
+    process_noise: float = 0.1  # Kalman Q diagonal scale (low = assumes smooth motion)
+    measurement_noise: float = (
+        0.5  # Kalman R diagonal scale (accounts for triangulation variance ~0.5m)
+    )
+
 
 
 class Settings:
