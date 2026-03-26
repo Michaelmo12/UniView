@@ -16,7 +16,7 @@ class NetworkConfig:
 class IngestionConfig:
     """Ingestion stage configuration."""
 
-    num_drones: int = 8  # Expected number of drones
+    num_drones: int = 4  # Expected number of drones
     sync_timeout: float = 2.0  # Frame synchronization timeout (seconds)
     max_buffer_size: int = 100  # Max frames buffered per synchronizer
 
@@ -93,6 +93,13 @@ class TrackingConfig:
     )
 
 
+@dataclass
+class OutputConfig:
+    """HTTP POST output configuration."""
+
+    gateway_url: str = "http://localhost:8080"  # Base URL for gateway POST /api/internal/push
+    jpeg_quality: int = 70                      # JPEG compression quality (0-100)
+
 
 class Settings:
     """
@@ -132,6 +139,7 @@ class Settings:
         self.fusion = FusionConfig()
         self.reconstruction = ReconstructionConfig()
         self.tracking = TrackingConfig()
+        self.output = OutputConfig()
 
         Settings._initialized = True
 

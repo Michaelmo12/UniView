@@ -13,6 +13,8 @@ from src.config.settings import (
     FeatureConfig,
     FusionConfig,
     ReconstructionConfig,
+    TrackingConfig,
+    OutputConfig,
 )
 
 __all__ = [
@@ -24,4 +26,6 @@ __all__ = [
     "FeatureConfig",
     "FusionConfig",
     "ReconstructionConfig",
+    "TrackingConfig",
+    "OutputConfig",
 ]

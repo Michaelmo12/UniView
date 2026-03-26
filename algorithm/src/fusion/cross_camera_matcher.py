@@ -221,7 +221,6 @@ class CrossCameraMatcher:
             f"{len(features_a) * len(features_b)} candidates "
             f"(threshold={self.config.epipolar_threshold:.1f}px)"
         )
-
         # Early exit if no geometric candidates
         if len(geometric_candidates) == 0:
             return []
