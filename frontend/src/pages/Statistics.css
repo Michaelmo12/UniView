@@ -129,3 +129,136 @@
   color: rgba(255, 255, 255, 0.12);
   line-height: 1.55;
 }
+
+/* ─── Red variant (Critical status) ─────────────────────────── */
+.stat-card--red::before       { background: rgba(255, 68, 68, 0.35); }
+.stat-card--red:hover::before { background: rgba(255, 68, 68, 0.7); }
+
+/* ─── Card header (icon + label row) ────────────────────────── */
+.stat-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stat-card__header .stat-card__label {
+  margin-bottom: 0;
+}
+
+.stat-card__header svg {
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+/* ─── Active value text (override placeholder dimming) ──────── */
+.stat-card--active .stat-card__value {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stat-card--active .stat-card__desc {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Refresh button ────────────────────────────────────────── */
+.stats-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-refresh-btn {
+  background: rgba(0, 255, 136, 0.08);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  border-radius: 4px;
+  color: rgba(0, 255, 136, 0.6);
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.stats-refresh-btn:hover {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: rgba(0, 255, 136, 0.4);
+  color: rgba(0, 255, 136, 0.9);
+}
+
+.stats-refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stats-refresh-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ─── Loading state ─────────────────────────────────────────── */
+.stats-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: rgba(0, 255, 136, 0.4);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ─── Error state ───────────────────────────────────────────── */
+.stats-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 12px;
+}
+
+.stats-error__message {
+  color: rgba(255, 68, 68, 0.7);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.stats-error__retry {
+  background: rgba(255, 68, 68, 0.08);
+  border: 1px solid rgba(255, 68, 68, 0.2);
+  border-radius: 4px;
+  color: rgba(255, 68, 68, 0.6);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.stats-error__retry:hover {
+  background: rgba(255, 68, 68, 0.15);
+  border-color: rgba(255, 68, 68, 0.4);
+  color: rgba(255, 68, 68, 0.9);
+}
+
+/* ─── 4-column grid for algorithm status ────────────────────── */
+.stats-grid--quad {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 900px) {
+  .stats-grid--quad {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
