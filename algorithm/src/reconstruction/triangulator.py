@@ -21,6 +21,9 @@ from src.reconstruction.models import Point3D
 
 logger = logging.getLogger(__name__)
 
+# Numerical stability threshold for homogeneous-coordinate divisions.
+EPS_DENOM = 1e-12
+
 
 class Triangulator:
     """
@@ -177,8 +180,12 @@ class Triangulator:
         _, _, Vt = np.linalg.svd(A)
         X_homogeneous = Vt[-1, :]  # shape (4,): [X, Y, Z, W]
 
-        # Convert from homogeneous to Cartesian coordinates
-        point_3d = X_homogeneous[:3] / X_homogeneous[3]  # [X/W, Y/ W, Z/W]
+        # Convert from homogeneous to Cartesian coordinates.
+        # W ~= 0 means point at infinity / degenerate triangulation.
+        w = float(X_homogeneous[3])
+        if abs(w) < EPS_DENOM:
+            return np.array([np.nan, np.nan, np.nan], dtype=np.float64)
+        point_3d = X_homogeneous[:3] / w  # [X/W, Y/W, Z/W]
 
         return point_3d.astype(np.float64)
 
@@ -214,9 +221,12 @@ class Triangulator:
         # Triangulate: returns (4, 1) homogeneous coordinates
         point_4d_homogeneous = cv2.triangulatePoints(P1, P2, pts1, pts2)
 
-        # Convert from homogeneous to Cartesian coordinates
-        # Divide [X, Y, Z, W] by W to get [x, y, z]
-        point_3d = point_4d_homogeneous[:3, 0] / point_4d_homogeneous[3, 0]
+        # Convert from homogeneous to Cartesian coordinates.
+        # W ~= 0 means point at infinity / degenerate triangulation.
+        w = float(point_4d_homogeneous[3, 0])
+        if abs(w) < EPS_DENOM:
+            return np.array([np.nan, np.nan, np.nan], dtype=np.float64)
+        point_3d = point_4d_homogeneous[:3, 0] / w
 
         return point_3d.astype(np.float64)  # (3,) array, explicit dtype
 
@@ -248,9 +258,14 @@ class Triangulator:
             # Project to image: [u, v, w] = P @ [X, Y, Z, 1]
             projected_homogeneous = P @ point_4d
 
+            # Near-zero depth makes pixel reprojection undefined.
+            depth = float(projected_homogeneous[2])
+            if abs(depth) < EPS_DENOM:
+                return float("inf")
+
             # Convert to pixel coordinates: (u/w, v/w)
-            projected_x = projected_homogeneous[0] / projected_homogeneous[2]
-            projected_y = projected_homogeneous[1] / projected_homogeneous[2]
+            projected_x = projected_homogeneous[0] / depth
+            projected_y = projected_homogeneous[1] / depth
 
             # Compute L2 distance to observed point
             dx = projected_x - pt_2d[0]
