@@ -5,10 +5,10 @@
  * Displays a rolling timeline of tracking sessions with summary stat cards,
  * a recharts line chart, and a raw-data log table.
  *
- * Mock data is used until GET /api/history is implemented.
+ * Fetches real data from GET /api/history.
  */
 
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   LineChart,
   Line,
@@ -27,9 +27,19 @@ import {
   Activity,
   Clock,
 } from "lucide-react";
+import { apiRequest } from "../services/api/client";
 import "./HistoryDashboard.css";
 
 /* ─── Types ───────────────────────────────────────────────────── */
+
+interface HistoryLogAPI {
+  id: number;
+  timestamp: string; // ISO 8601 from backend
+  avg_people_count: number;
+  peak_people_count: number;
+  active_drones_count: number;
+  total_reid_matches: number;
+}
 
 interface HistoryLog {
   id: string;
@@ -37,41 +47,6 @@ interface HistoryLog {
   totalPersons: number;
   activeDrones: number;
   crossCameraMatches: number;
-}
-
-/* ─── Mock Data Generator (1-minute intervals, ~40 records) ───── */
-
-function generateMockData(): HistoryLog[] {
-  // Base time: today at 13:00
-  const base = new Date();
-  base.setHours(13, 0, 0, 0);
-
-  // Realistic "activity wave" — quiet open, spike mid-session, taper off
-  const personsCurve = [
-    3, 4, 5, 7, 9, 12, 14, 17, 20, 22, 24, 26, 28, 27, 25, 24,
-    26, 29, 31, 33, 30, 27, 25, 22, 19, 17, 15, 14, 13, 12, 11,
-    10, 9, 8, 7, 7, 6, 5, 5, 4,
-  ];
-
-  return personsCurve.map((persons, i) => {
-    const t = new Date(base.getTime() + i * 60_000);
-    const hh = String(t.getHours()).padStart(2, "0");
-    const mm = String(t.getMinutes()).padStart(2, "0");
-
-    // Drones loosely correlate with persons (never less than 1)
-    const drones = Math.min(8, Math.max(1, Math.round(persons / 5) + (i % 3 === 0 ? 1 : 0)));
-
-    // Matches are a fraction of tracked persons
-    const matches = Math.round(persons * (0.15 + Math.random() * 0.2));
-
-    return {
-      id: `log-${String(i + 1).padStart(3, "0")}`,
-      timestamp: `${hh}:${mm}`,
-      totalPersons: persons,
-      activeDrones: drones,
-      crossCameraMatches: matches,
-    };
-  });
 }
 
 /* ─── Stat-card configuration ─────────────────────────────────── */
@@ -127,7 +102,79 @@ function ChartTooltip({ active, payload, label }: CustomTooltipProps) {
 /* ─── Main Component ──────────────────────────────────────────── */
 
 function HistoryDashboard() {
-  const logs = useMemo(() => generateMockData(), []);
+  const [logs, setLogs] = useState<HistoryLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchHistory() {
+      try {
+        setLoading(true);
+        const data = await apiRequest<HistoryLogAPI[]>("/history");
+        if (cancelled) return;
+        // Map API fields to display fields
+        const mapped: HistoryLog[] = data.map((row) => {
+          const dt = new Date(row.timestamp);
+          const hh = String(dt.getHours()).padStart(2, "0");
+          const mm = String(dt.getMinutes()).padStart(2, "0");
+          return {
+            id: String(row.id),
+            timestamp: `${hh}:${mm}`,
+            totalPersons: Math.round(row.avg_people_count),
+            activeDrones: row.active_drones_count,
+            crossCameraMatches: row.total_reid_matches,
+          };
+        });
+        setLogs(mapped);
+        setError(null);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Failed to load history");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchHistory();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="history-page">
+        <header className="history-header">
+          <div className="history-header__left">
+            <Activity size={14} className="history-header__icon" />
+            <div>
+              <h1 className="history-title">Mission History</h1>
+              <p className="history-subtitle">Loading session data...</p>
+            </div>
+          </div>
+        </header>
+      </div>
+    );
+  }
+
+  if (!loading && logs.length === 0) {
+    return (
+      <div className="history-page">
+        <header className="history-header">
+          <div className="history-header__left">
+            <Activity size={14} className="history-header__icon" />
+            <div>
+              <h1 className="history-title">Mission History</h1>
+              <p className="history-subtitle">No history records yet</p>
+            </div>
+          </div>
+        </header>
+        <section className="history-section">
+          <div className="history-section-label">
+            {error ? `Error: ${error}` : "Start a surveillance session to see analytics here."}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   /* Derived statistics */
   const avgPersons = Math.round(
