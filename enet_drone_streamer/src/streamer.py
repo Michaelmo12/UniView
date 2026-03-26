@@ -46,6 +46,8 @@ class ENetStreamer:
         self._peers: list = []
         self._frame_count = self._loader.get_frame_count()
         self._current_frame_idx = 0
+        self._frames_sent = 0
+        self._total_bytes_sent = 0
 
     # ------------------------------------------------------------------
     # Public interface
@@ -140,12 +142,14 @@ class ENetStreamer:
 
     def _send_frame(self) -> None:
         """Load current frame index and broadcast to all connected peers."""
+        frame_idx = self._current_frame_idx
+
         if not self._peers:
-            # No connected peers; still advance the frame index so timing is consistent
+            if frame_idx % 10 == 0:
+                print(f"[DRONE {self.config.drone_id}] Processing frame {frame_idx:04d} (no clients connected)")
             self._advance_frame()
             return
 
-        frame_idx = self._current_frame_idx
         try:
             jpeg_bytes, K, R, t, dist = self._loader.load_frame(frame_idx)
         except Exception as exc:
@@ -182,13 +186,16 @@ class ENetStreamer:
                     exc,
                 )
 
-        logger.debug(
-            "ENetStreamer: Drone %d — sent frame %d (%d bytes) to %d peer(s)",
-            self.config.drone_id,
-            frame_idx,
-            len(packet_data),
-            len(self._peers),
-        )
+        self._frames_sent += 1
+        self._total_bytes_sent += len(packet_data)
+
+        if frame_idx % 100 == 0:
+            avg_kb = (self._total_bytes_sent / self._frames_sent / 1024.0) if self._frames_sent else 0
+            print(
+                f"[DRONE {self.config.drone_id}] Frame {frame_idx:04d}, "
+                f"{len(packet_data) / 1024:.1f} KB (avg: {avg_kb:.1f} KB), "
+                f"{len(self._peers)} client(s)"
+            )
 
         self._advance_frame()
 

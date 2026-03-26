@@ -12,6 +12,7 @@ Usage:
 
 import argparse
 import logging
+import os
 import subprocess
 import sys
 import time
@@ -19,6 +20,9 @@ from pathlib import Path
 
 BASE_PORT = 16000
 NUM_DRONES = 8
+
+# Default dataset path relative to project root
+DEFAULT_DATASET = str(Path(__file__).parent.parent / "MATRIX_30x30" / "MATRIX_30x30")
 
 
 def _parse_args() -> argparse.Namespace:
@@ -29,7 +33,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         type=str,
-        default="MATRIX",
+        default=DEFAULT_DATASET,
         metavar="PATH",
         help="Root path to MATRIX dataset directory.",
     )
@@ -95,11 +99,20 @@ def main() -> None:
         if args.no_loop:
             cmd.append("--no-loop")
 
-        proc = subprocess.Popen(cmd)
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(script_dir.parent)
+        proc = subprocess.Popen(cmd, env=env)
         processes.append(proc)
         print(f"Launched drone {drone_id} on port {port}  (PID {proc.pid})")
 
-    logger.info("All %d drones launched. Press Ctrl+C to stop.", NUM_DRONES)
+    # Synchronized start: wait 1 second after all processes are spawned so all
+    # 8 drones initialize at roughly the same time before any begin streaming.
+    # Mirrors the threading.Event barrier in mock_drone_streamer/server.py.
+    print(f"\n{'='*60}")
+    print(f"All {NUM_DRONES} drones launched. Waiting 1s for synchronized start...")
+    print(f"{'='*60}\n")
+    time.sleep(1.0)
+    logger.info("All %d drones streaming. Press Ctrl+C to stop.", NUM_DRONES)
 
     try:
         # Wait for any process to exit (unexpected)

@@ -13,11 +13,12 @@ Run with --help for full option list.
 import argparse
 import logging
 import sys
+from pathlib import Path
 
 from enet_drone_streamer.config.config import StreamerConfig
-from enet_drone_streamer.src.dataset_loader import DatasetLoader
-from enet_drone_streamer.src.packet_builder import PacketBuilder
 from enet_drone_streamer.src.streamer import ENetStreamer
+
+DEFAULT_DATASET = str(Path(__file__).parent.parent / "MATRIX_30x30" / "MATRIX_30x30")
 
 
 def _setup_logging(level: int = logging.INFO) -> None:
@@ -44,7 +45,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         type=str,
-        default="MATRIX",
+        default=DEFAULT_DATASET,
         metavar="PATH",
         help="Root path to MATRIX dataset directory.",
     )

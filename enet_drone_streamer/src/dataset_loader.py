@@ -1,28 +1,32 @@
 """
 DatasetLoader - MATRIX Dataset Frame and Calibration Loader
 
-Loads frames and per-frame calibration data from the MATRIX multi-drone dataset.
-Falls back to synthetic data (random colored frames + identity calibration) when
-the dataset directory is not found, so the streamer runs standalone without data.
+Reads the actual MATRIX_30x30 dataset layout:
 
-Expected MATRIX directory structure:
     {dataset_path}/
-        Drone{N}/
-            frames/
-                frame_0000.jpg
-                frame_0001.jpg
+        image_subsets/
+            D{N}/
+                0000.png
+                0001.png
                 ...
-            calibration/
-                K.txt               <- 3x3 intrinsic matrix (3 rows, space-separated)
-                R_frame_0000.txt    <- 3x3 rotation matrix per frame
-                t_frame_0000.txt    <- 3x1 translation vector per frame (3 lines, 1 value each)
+        calibrations/
+            extrinsic/
+                extr_Drone{N}_{frame:04d}.xml   <- binary base64 rvec (3xfloat64) + tvec (3xfloat64)
+            intrinsic/
+                intr_Drone{N}_{frame:04d}.xml   <- text K matrix + distortion coefficients
 
-Calibration note: MATRIX dataset does not include lens distortion coefficients.
-Distortion defaults to np.zeros(5, dtype=np.float32).
+Drone IDs 1-8 map to image folders D1-D8.
+
+Calibration processing:
+    - rvec is converted to R matrix via cv2.Rodrigues() in this loader
+    - All output matrices are float32 numpy arrays
+    - Packet builder receives (jpeg_bytes, K, R, t, dist) — no further conversion needed
 """
 
+import base64
 import logging
-import os
+import struct
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import cv2
@@ -33,266 +37,194 @@ logger = logging.getLogger(__name__)
 
 class DatasetLoader:
     """
-    Loads frames and calibration data from a MATRIX drone dataset folder.
-
-    If the drone folder is not found, or if any frame/calibration file is
-    missing, this loader transparently falls back to synthetic data so the
-    streamer can always produce valid packets.
+    Loads frames and per-frame calibration from the MATRIX_30x30 dataset.
 
     Args:
-        dataset_path: Root path to the MATRIX dataset (contains Drone1/, Drone2/, ...).
-        drone_id:     Which drone to load (1-8).
-        jpeg_quality: JPEG encoding quality for loaded frames (0-100).
+        dataset_path: Root of the MATRIX dataset
+                      (the folder that contains image_subsets/ and calibrations/).
+        drone_id:     Drone number 1-8.
+        jpeg_quality: JPEG encoding quality for frames (0-100).
     """
 
-    SYNTHETIC_FRAME_COUNT = 100
-    SYNTHETIC_WIDTH = 640
-    SYNTHETIC_HEIGHT = 480
-
     def __init__(self, dataset_path: str, drone_id: int, jpeg_quality: int = 85) -> None:
-        self.dataset_path = dataset_path
+        self.dataset_path = Path(dataset_path)
         self.drone_id = drone_id
         self.jpeg_quality = jpeg_quality
 
-        self._drone_dir = Path(dataset_path) / f"Drone{drone_id}"
-        self._frames_dir = self._drone_dir / "frames"
-        self._calib_dir = self._drone_dir / "calibration"
+        self._frames_dir = self.dataset_path / "image_subsets" / f"D{drone_id}"
+        self._extr_dir = self.dataset_path / "calibrations" / "extrinsic"
+        self._intr_dir = self.dataset_path / "calibrations" / "intrinsic"
 
-        self._synthetic = False
-        self._K_shared: np.ndarray | None = None  # Shared across frames if loaded once
+        if not self._frames_dir.exists():
+            raise FileNotFoundError(
+                f"Drone{drone_id}: frames directory not found at '{self._frames_dir}'. "
+                f"Check dataset_path points to the folder containing image_subsets/ and calibrations/."
+            )
 
-        if not self._drone_dir.exists():
-            logger.warning(
-                "Drone%d dataset directory not found at '%s'. "
-                "Falling back to synthetic frames.",
-                drone_id,
-                self._drone_dir,
+        if not self._extr_dir.exists():
+            raise FileNotFoundError(
+                f"Extrinsic calibration directory not found at '{self._extr_dir}'."
             )
-            self._synthetic = True
-        else:
-            logger.info(
-                "DatasetLoader: Drone%d dataset found at '%s'",
-                drone_id,
-                self._drone_dir,
+
+        if not self._intr_dir.exists():
+            raise FileNotFoundError(
+                f"Intrinsic calibration directory not found at '{self._intr_dir}'."
             )
-            self._K_shared = self._load_K()
+
+        logger.info(
+            "DatasetLoader: Drone%d dataset ready at '%s'",
+            drone_id,
+            self._frames_dir,
+        )
 
     # ------------------------------------------------------------------
     # Public interface
     # ------------------------------------------------------------------
 
     def get_frame_count(self) -> int:
-        """Return the number of available frames (or synthetic count)."""
-        if self._synthetic:
-            return self.SYNTHETIC_FRAME_COUNT
-
-        if not self._frames_dir.exists():
-            logger.warning(
-                "Drone%d: frames directory missing, using synthetic count.",
-                self.drone_id,
-            )
-            return self.SYNTHETIC_FRAME_COUNT
-
-        frame_files = sorted(self._frames_dir.glob("frame_*.jpg"))
-        count = len(frame_files)
+        """Return the number of available frames."""
+        frames = sorted(self._frames_dir.glob("[0-9][0-9][0-9][0-9].png"))
+        count = len(frames)
         if count == 0:
-            logger.warning(
-                "Drone%d: no frame_*.jpg files found in '%s', using synthetic count.",
-                self.drone_id,
-                self._frames_dir,
+            raise FileNotFoundError(
+                f"Drone{self.drone_id}: no 0000.png-style frames found in '{self._frames_dir}'."
             )
-            return self.SYNTHETIC_FRAME_COUNT
-
         return count
 
     def load_frame(
         self, frame_idx: int
     ) -> tuple[bytes, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         """
-        Load a single frame and its calibration data.
+        Load a single frame and its calibration.
 
         Args:
             frame_idx: Zero-based frame index.
 
         Returns:
             (jpeg_bytes, K, R, t, dist) where:
-                jpeg_bytes: JPEG-encoded image as bytes
-                K:    (3,3) float32 intrinsic matrix
-                R:    (3,3) float32 rotation matrix
-                t:    (3,1) float32 translation vector
-                dist: (5,)  float32 distortion coefficients (zeros for MATRIX)
+                jpeg_bytes: JPEG-encoded image bytes
+                K:    (3, 3) float32 intrinsic matrix
+                R:    (3, 3) float32 rotation matrix  (converted from rvec via Rodrigues)
+                t:    (3, 1) float32 translation vector
+                dist: (5,)   float32 distortion coefficients
         """
-        if self._synthetic:
-            return self._load_synthetic_frame(frame_idx)
-
-        try:
-            return self._load_real_frame(frame_idx)
-        except Exception as exc:
-            logger.warning(
-                "Drone%d: failed to load real frame %d (%s). Falling back to synthetic.",
-                self.drone_id,
-                frame_idx,
-                exc,
-            )
-            return self._load_synthetic_frame(frame_idx)
+        return self._load_real_frame(frame_idx)
 
     # ------------------------------------------------------------------
-    # Real data loading
+    # Data loading
     # ------------------------------------------------------------------
 
     def _load_real_frame(
         self, frame_idx: int
     ) -> tuple[bytes, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        frame_path = self._frames_dir / f"frame_{frame_idx:04d}.jpg"
+        frame_path = self._frames_dir / f"{frame_idx:04d}.png"
         if not frame_path.exists():
-            raise FileNotFoundError(f"Frame file not found: {frame_path}")
+            raise FileNotFoundError(f"Frame not found: {frame_path}")
 
         image = cv2.imread(str(frame_path))
         if image is None:
             raise ValueError(f"cv2.imread returned None for: {frame_path}")
 
         jpeg_bytes = self._encode_jpeg(image)
-
-        K = self._K_shared if self._K_shared is not None else self._load_K()
-        R = self._load_R(frame_idx)
-        t = self._load_t(frame_idx)
-        dist = np.zeros(5, dtype=np.float32)
+        K, dist = self._load_intrinsic(frame_idx)
+        R, t = self._load_extrinsic(frame_idx)
 
         return jpeg_bytes, K, R, t, dist
 
-    def _load_K(self) -> np.ndarray:
-        """Load 3x3 intrinsic matrix from calibration/K.txt."""
-        k_path = self._calib_dir / "K.txt"
-        if not k_path.exists():
-            logger.warning(
-                "Drone%d: K.txt not found at '%s'. Using identity K.",
-                self.drone_id,
-                k_path,
+    def _load_extrinsic(self, frame_idx: int) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Load extrinsic XML, decode binary rvec+tvec, convert rvec->R via Rodrigues.
+
+        Returns:
+            R: (3, 3) float32 rotation matrix
+            t: (3, 1) float32 translation vector
+        """
+        filename = f"extr_Drone{self.drone_id}_{frame_idx:04d}.xml"
+        filepath = self._extr_dir / filename
+
+        if not filepath.exists():
+            raise FileNotFoundError(f"Extrinsic file not found: {filepath}")
+
+        tree = ET.parse(str(filepath))
+        root = tree.getroot()
+
+        rvec_binary = self._extract_binary_element(root, "rvec")
+        tvec_binary = self._extract_binary_element(root, "tvec")
+
+        # Each is 3 float64 values = 24 bytes; dataset stores them with a prefix,
+        # so we take the last 24 bytes (same approach as mock_drone_streamer).
+        rvec_vals = struct.unpack("ddd", rvec_binary[-24:])
+        tvec_vals = struct.unpack("ddd", tvec_binary[-24:])
+
+        rvec = np.array(rvec_vals, dtype=np.float64).reshape(3, 1)
+        tvec = np.array(tvec_vals, dtype=np.float64).reshape(3, 1)
+
+        R, _ = cv2.Rodrigues(rvec)
+        R = R.astype(np.float32)
+        t = tvec.astype(np.float32)
+
+        return R, t
+
+    def _load_intrinsic(self, frame_idx: int) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Load intrinsic XML, parse K matrix and distortion coefficients.
+
+        Returns:
+            K:    (3, 3) float32
+            dist: (5,)   float32
+        """
+        filename = f"intr_Drone{self.drone_id}_{frame_idx:04d}.xml"
+        filepath = self._intr_dir / filename
+
+        if not filepath.exists():
+            raise FileNotFoundError(f"Intrinsic file not found: {filepath}")
+
+        tree = ET.parse(str(filepath))
+        root = tree.getroot()
+
+        K = None
+        cam_elem = root.find(".//camera_matrix")
+        if cam_elem is not None:
+            data_elem = cam_elem.find(".//data")
+            if data_elem is not None and data_elem.text:
+                vals = [float(x) for x in data_elem.text.split()]
+                K = np.array(vals, dtype=np.float32).reshape(3, 3)
+
+        if K is None:
+            raise ValueError(
+                f"Drone{self.drone_id} frame {frame_idx}: could not parse K from '{filepath}'."
             )
-            return self._synthetic_K()
 
-        try:
-            K = np.loadtxt(str(k_path), dtype=np.float32)
-            if K.shape != (3, 3):
-                raise ValueError(f"Expected (3,3) but got {K.shape}")
-            return K
-        except Exception as exc:
-            logger.warning(
-                "Drone%d: failed to parse K.txt: %s. Using identity K.",
-                self.drone_id,
-                exc,
-            )
-            return self._synthetic_K()
-
-    def _load_R(self, frame_idx: int) -> np.ndarray:
-        """Load 3x3 rotation matrix for a specific frame."""
-        r_path = self._calib_dir / f"R_frame_{frame_idx:04d}.txt"
-        if not r_path.exists():
-            logger.debug(
-                "Drone%d: R_frame_%04d.txt not found. Using identity R.",
-                self.drone_id,
-                frame_idx,
-            )
-            return np.eye(3, dtype=np.float32)
-
-        try:
-            R = np.loadtxt(str(r_path), dtype=np.float32)
-            if R.shape != (3, 3):
-                raise ValueError(f"Expected (3,3) but got {R.shape}")
-            return R
-        except Exception as exc:
-            logger.warning(
-                "Drone%d: failed to parse R_frame_%04d.txt: %s. Using identity R.",
-                self.drone_id,
-                frame_idx,
-                exc,
-            )
-            return np.eye(3, dtype=np.float32)
-
-    def _load_t(self, frame_idx: int) -> np.ndarray:
-        """Load 3x1 translation vector for a specific frame."""
-        t_path = self._calib_dir / f"t_frame_{frame_idx:04d}.txt"
-        if not t_path.exists():
-            logger.debug(
-                "Drone%d: t_frame_%04d.txt not found. Using zero t.",
-                self.drone_id,
-                frame_idx,
-            )
-            return np.zeros((3, 1), dtype=np.float32)
-
-        try:
-            t_flat = np.loadtxt(str(t_path), dtype=np.float32)
-            t = t_flat.reshape(3, 1)
-            return t
-        except Exception as exc:
-            logger.warning(
-                "Drone%d: failed to parse t_frame_%04d.txt: %s. Using zero t.",
-                self.drone_id,
-                frame_idx,
-                exc,
-            )
-            return np.zeros((3, 1), dtype=np.float32)
-
-    # ------------------------------------------------------------------
-    # Synthetic data generation
-    # ------------------------------------------------------------------
-
-    def _load_synthetic_frame(
-        self, frame_idx: int
-    ) -> tuple[bytes, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """Generate a synthetic frame for offline testing / missing dataset."""
-        # Deterministic color per drone so we can visually identify sources
-        rng = np.random.default_rng(seed=self.drone_id * 1000 + frame_idx)
-        color = rng.integers(50, 200, size=3).tolist()
-
-        image = np.full(
-            (self.SYNTHETIC_HEIGHT, self.SYNTHETIC_WIDTH, 3),
-            color,
-            dtype=np.uint8,
-        )
-
-        # Overlay text so the drone ID is visible in the JPEG stream
-        label = f"Drone {self.drone_id} | Frame {frame_idx}"
-        cv2.putText(
-            image,
-            label,
-            (20, 50),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (255, 255, 255),
-            2,
-            cv2.LINE_AA,
-        )
-
-        jpeg_bytes = self._encode_jpeg(image)
-
-        K = self._synthetic_K()
-        R = np.eye(3, dtype=np.float32)
-        t = np.zeros((3, 1), dtype=np.float32)
         dist = np.zeros(5, dtype=np.float32)
+        dist_elem = root.find(".//distortion_coefficients")
+        if dist_elem is not None:
+            data_elem = dist_elem.find(".//data")
+            if data_elem is not None and data_elem.text:
+                vals = [float(x) for x in data_elem.text.split()]
+                n = min(len(vals), 5)
+                dist[:n] = vals[:n]
 
-        return jpeg_bytes, K, R, t, dist
+        return K, dist
 
     @staticmethod
-    def _synthetic_K() -> np.ndarray:
-        """Identity-style intrinsic matrix for synthetic fallback."""
-        return np.array(
-            [
-                [800.0, 0.0, 320.0],
-                [0.0, 800.0, 240.0],
-                [0.0, 0.0, 1.0],
-            ],
-            dtype=np.float32,
-        )
+    def _extract_binary_element(root: ET.Element, tag: str) -> bytes:
+        """Extract base64-decoded binary data from an OpenCV XML element."""
+        elem = root.find(f".//{tag}")
+        if elem is None:
+            raise ValueError(f"<{tag}> element not found in XML")
+        data_elem = elem.find(".//data")
+        if data_elem is None or data_elem.get("type_id") != "binary":
+            raise ValueError(f"<{tag}> data is not binary format")
+        return base64.b64decode(data_elem.text.strip())
 
     # ------------------------------------------------------------------
     # Utilities
     # ------------------------------------------------------------------
 
     def _encode_jpeg(self, image: np.ndarray) -> bytes:
-        """JPEG-encode a BGR image to bytes."""
-        encode_params = [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
-        success, buffer = cv2.imencode(".jpg", image, encode_params)
+        success, buf = cv2.imencode(
+            ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, self.jpeg_quality]
+        )
         if not success:
             raise RuntimeError("cv2.imencode failed")
-        return buffer.tobytes()
+        return buf.tobytes()
