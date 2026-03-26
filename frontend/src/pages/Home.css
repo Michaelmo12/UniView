@@ -2,7 +2,8 @@
 .uniview-dashboard {
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 104px);
+  height: calc(100vh - 104px);
+  overflow: hidden;
   font-family: var(--font-mono, 'IBM Plex Mono', monospace);
   color: #555;
   position: relative;
@@ -13,24 +14,48 @@
 .uniview-grid-wrapper {
   flex: 1;
   padding: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .uniview-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
   gap: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.uniview-grid--8 {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
 }
 
 /* ─── Drone Cell ─────────────────────────────────────────────── */
+/*
+ * .drone-cell is the container for one camera feed.
+ * It uses position:relative so all child overlays (header, footer,
+ * scanlines, corner brackets) can be absolute-positioned on top of
+ * the canvas.  overflow:hidden clips everything to the tile boundary.
+ *
+ * Layer stack (z-index):
+ *   2 → body / canvas
+ *   4 → scanline overlay (purely cosmetic)
+ *   5 → corner brackets (::before/::after pseudo-elements)
+ *   6 → header + footer HUD bars
+ */
 .drone-cell {
   position: relative;
   background: #0f0f0f;
-  aspect-ratio: 16 / 9;
   overflow: hidden;
   cursor: pointer;
   transition: box-shadow 0.2s ease;
 }
 
+/* Corner brackets — four thin L-shaped lines drawn with pseudo-elements.
+ * ::before/::after handle top corners; .drone-cell__corners handles bottom. */
 /* Corner brackets — top-left / top-right */
 .drone-cell::before,
 .drone-cell::after {
@@ -96,7 +121,7 @@
   box-shadow: 0 0 18px rgba(0, 255, 136, 0.07), inset 0 0 24px rgba(0, 255, 136, 0.03);
 }
 
-/* Live tile */
+/* Live tile — brighter corners + subtle glow when a payload is being received */
 .drone-cell--live::before,
 .drone-cell--live::after,
 .drone-cell--live .drone-cell__corners::before,
@@ -108,7 +133,9 @@
   box-shadow: 0 0 22px rgba(0, 255, 136, 0.1), inset 0 0 32px rgba(0, 255, 136, 0.04);
 }
 
-/* Scanline overlay */
+/* Scanline overlay — purely decorative CRT effect drawn with a repeating
+ * linear-gradient over the entire tile.  pointer-events:none means clicks
+ * pass through to the canvas below. */
 .drone-cell__scanlines {
   position: absolute;
   inset: 0;
@@ -123,7 +150,9 @@
   );
 }
 
-/* Cell header */
+/* Cell header — HUD bar pinned to the top of the tile.
+ * Shows "DRONE-01" on the left and the live/offline status badge on the right.
+ * Semi-transparent gradient fades into the video so it doesn't fully block it. */
 .drone-cell__header {
   position: absolute;
   top: 0; left: 0; right: 0;
@@ -155,6 +184,7 @@
   color: #00ff88;
 }
 
+/* Pulsing red dot next to "REC" — animated via recBlink keyframes */
 .drone-cell__rec-dot {
   width: 5px;
   height: 5px;
@@ -169,7 +199,9 @@
   50%       { opacity: 0.15; }
 }
 
-/* Cell body */
+/* Cell body — fills the entire tile behind the HUD overlays.
+ * When live: holds the <canvas> (z-index 2, behind scanlines/header/footer).
+ * When offline: holds the crosshair nosignal placeholder. */
 .drone-cell__body {
   position: absolute;
   inset: 0;
@@ -183,6 +215,7 @@
   opacity: 0.1;
 }
 
+/* Crosshair drawn with ::before (horizontal) and ::after (vertical) pseudo-elements */
 .drone-cell__crosshair {
   width: 20px;
   height: 20px;
@@ -207,7 +240,9 @@
   transform: translateX(-50%);
 }
 
-/* Cell footer */
+/* Cell footer — HUD bar pinned to the bottom, mirrors the header structure.
+ * Shows static metadata labels (resolution, channel, FPS).
+ * Dim when offline, green-tinted when live. */
 .drone-cell__footer {
   position: absolute;
   bottom: 0; left: 0; right: 0;

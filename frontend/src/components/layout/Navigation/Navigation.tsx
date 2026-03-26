@@ -25,6 +25,9 @@ function Navigation() {
               <NavLink to="/statistics" className="nav-link">
                 Statistics
               </NavLink>
+              <NavLink to="/history" className="nav-link">
+                History
+              </NavLink>
               {isAdmin && (
                 <NavLink to="/admin/add-user" className="nav-link">
                   Add User

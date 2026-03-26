@@ -1,0 +1,408 @@
+/* ─────────────────────────────────────────────────────────────────
+   HistoryDashboard.css
+   Styles for the Mission History analytics page.
+   Follows the UniView BEM naming system & CSS variable palette.
+   ───────────────────────────────────────────────────────────────── */
+
+/* ─── Page Root ──────────────────────────────────────────────── */
+
+.history-page {
+  min-height: calc(100vh - 104px);
+  padding: 28px 24px;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+  color: rgba(255, 255, 255, 0.45);
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Page Header ─────────────────────────────────────────────── */
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 28px;
+  padding: 20px 24px 18px;
+  background: rgba(13, 13, 13, 0.95);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.history-header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.history-header__icon {
+  color: rgba(0, 255, 136, 0.5);
+  flex-shrink: 0;
+}
+
+.history-title {
+  font-family: var(--font-condensed, 'IBM Plex Sans Condensed', sans-serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #eeeeee;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+}
+
+.history-subtitle {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: rgba(0, 255, 136, 0.4);
+  margin: 0;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.history-header__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.history-header__sep {
+  color: rgba(0, 255, 136, 0.2);
+}
+
+/* ─── Section ─────────────────────────────────────────────────── */
+
+.history-section {
+  margin-bottom: 28px;
+}
+
+.history-section-label {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: rgba(0, 255, 136, 0.35);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.history-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 255, 136, 0.08);
+}
+
+/* ─── Stat Cards Grid ─────────────────────────────────────────── */
+
+.history-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .history-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .history-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ─── Stat Card ───────────────────────────────────────────────── */
+
+.history-stat-card {
+  background: rgba(13, 13, 13, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  padding: 18px 20px;
+  position: relative;
+  transition: border-color 0.2s ease;
+  overflow: hidden;
+}
+
+/* Left accent stripe */
+.history-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 2px;
+  height: 100%;
+  border-radius: 4px 0 0 4px;
+  transition: background 0.2s ease;
+}
+
+.history-stat-card:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Color variants */
+.history-stat-card--green::before        { background: rgba(0, 255, 136, 0.35); }
+.history-stat-card--green:hover::before  { background: rgba(0, 255, 136, 0.7); }
+
+.history-stat-card--cyan::before         { background: rgba(0, 212, 255, 0.35); }
+.history-stat-card--cyan:hover::before   { background: rgba(0, 212, 255, 0.7); }
+
+.history-stat-card--orange::before       { background: rgba(255, 136, 68, 0.35); }
+.history-stat-card--orange:hover::before { background: rgba(255, 136, 68, 0.7); }
+
+.history-stat-card--purple::before       { background: rgba(185, 104, 255, 0.35); }
+.history-stat-card--purple:hover::before { background: rgba(185, 104, 255, 0.7); }
+
+.history-stat-card--pink::before         { background: rgba(255, 68, 102, 0.35); }
+.history-stat-card--pink:hover::before   { background: rgba(255, 68, 102, 0.7); }
+
+/* Card internals */
+.history-stat-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.history-stat-card__label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  font-weight: 600;
+  line-height: 1.4;
+  flex: 1;
+  padding-right: 8px;
+}
+
+.history-stat-card__icon {
+  color: rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.history-stat-card__value {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1;
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Make the "Peak @ time" card value slightly smaller so it fits */
+.history-stat-card--cyan .history-stat-card__value {
+  font-size: 1.2rem;
+}
+
+.history-stat-card__desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.12);
+  line-height: 1.55;
+}
+
+/* ─── Chart Container ─────────────────────────────────────────── */
+
+.history-chart {
+  background: rgba(13, 13, 13, 0.92);
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  border-radius: 4px;
+  padding: 20px 16px 12px;
+}
+
+/* Custom tooltip */
+.history-chart__tooltip {
+  background: rgba(10, 10, 10, 0.97);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  border-radius: 4px;
+  padding: 10px 14px;
+  min-width: 140px;
+}
+
+.history-chart__tooltip-time {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  color: rgba(0, 255, 136, 0.6);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 255, 136, 0.08);
+  padding-bottom: 6px;
+}
+
+.history-chart__tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.history-chart__tooltip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.history-chart__tooltip-label {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  flex: 1;
+}
+
+.history-chart__tooltip-val {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Chart legend */
+.history-chart__legend {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0, 255, 136, 0.05);
+}
+
+.history-chart__legend-item {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+/* Colored dash before each legend item */
+.history-chart__legend-item::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.history-chart__legend-item--green {
+  color: rgba(0, 255, 136, 0.5);
+}
+.history-chart__legend-item--green::before {
+  background: #00ff88;
+}
+
+.history-chart__legend-item--cyan {
+  color: rgba(0, 212, 255, 0.5);
+}
+.history-chart__legend-item--cyan::before {
+  background: #00d4ff;
+}
+
+.history-chart__legend-item--purple {
+  color: rgba(185, 104, 255, 0.5);
+}
+.history-chart__legend-item--purple::before {
+  background: #b968ff;
+}
+
+/* ─── Data Table ──────────────────────────────────────────────── */
+
+.history-table-wrap {
+  background: rgba(13, 13, 13, 0.92);
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  border-radius: 4px;
+  overflow-x: auto;
+  /* Scrollable on small screens */
+}
+
+.history-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 12px;
+}
+
+/* ── Table Head ── */
+.history-table__th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: rgba(0, 255, 136, 0.35);
+  border-bottom: 1px solid rgba(0, 255, 136, 0.08);
+  white-space: nowrap;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+}
+
+.history-table__th--id {
+  width: 48px;
+  color: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Table Rows ── */
+.history-table__row {
+  transition: background 0.15s ease;
+}
+
+.history-table__row:hover {
+  background: rgba(0, 255, 136, 0.03);
+}
+
+/* Alternating row shade */
+.history-table__row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.history-table__row:nth-child(even):hover {
+  background: rgba(0, 255, 136, 0.03);
+}
+
+/* Peak-row highlight */
+.history-table__row--peak {
+  background: rgba(0, 255, 136, 0.04) !important;
+  border-left: 2px solid rgba(0, 255, 136, 0.4);
+}
+
+/* ── Table Cells ── */
+.history-table__td {
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.history-table__td--id {
+  color: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+}
+
+.history-table__td--time {
+  color: rgba(0, 255, 136, 0.55);
+  letter-spacing: 1px;
+}
+
+.history-table__td--persons {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.history-table__td--drones {
+  color: rgba(0, 212, 255, 0.6);
+}
+
+.history-table__td--matches {
+  color: rgba(185, 104, 255, 0.6);
+}

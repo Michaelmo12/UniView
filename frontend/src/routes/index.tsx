@@ -4,6 +4,7 @@ import Home from "../pages/Home.tsx";
 import Login from "../pages/Login.tsx";
 import AddUser from "../pages/AddUser.tsx";
 import Statistics from "../pages/Statistics.tsx";
+import HistoryDashboard from "../pages/HistoryDashboard.tsx";
 
 function AppRoutes() {
   return (
@@ -22,6 +23,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Statistics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute>
+            <HistoryDashboard />
           </ProtectedRoute>
         }
       />
