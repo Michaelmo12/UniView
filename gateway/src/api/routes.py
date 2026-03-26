@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 
 # Pydantic models for request/response validation
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # HTTP client to make requests to backend
 import httpx
@@ -13,6 +13,7 @@ from src.core.auth import create_jwt, get_current_user, get_admin_user, oauth2_s
 from src.core import add_token_to_blacklist
 from src.config import settings
 from src.api.sse import broadcaster
+from src.api.aggregator import history_aggregator
 from jose import jwt as jose_jwt, JWTError
 
 
@@ -57,6 +58,7 @@ async def push_payload(payload: StreamPayload):
     Fans out to all connected SSE clients.
     """
     await broadcaster.push_event(payload.model_dump())
+    await history_aggregator.process_payload(payload.model_dump())
     return {"status": "ok"}
 
 
@@ -70,10 +72,9 @@ async def stream_live(token: str = Query(..., description="JWT access token")):
     Server-Sent Events stream. JWT via query param (EventSource limitation).
     Frontend: new EventSource('/stream/live?token=<jwt>')
     """
-    try:
-        verify_jwt(token)
-    except (JWTError, Exception):
-        raise HTTPException(status_code=401, detail="Invalid token")
+    # verify_jwt raises HTTPException on failure — let it propagate directly.
+    # Catching Exception here would swallow the HTTPException before FastAPI handles it.
+    verify_jwt(token)
 
     return StreamingResponse(
         broadcaster.subscribe(),
@@ -83,6 +84,32 @@ async def stream_live(token: str = Query(..., description="JWT access token")):
             "X-Accel-Buffering": "no",
         },
     )
+@router.get("/api/history")
+async def get_history(
+    start_time: Optional[str] = Query(None),
+    end_time: Optional[str] = Query(None),
+    current_user: Dict = Depends(get_current_user),
+):
+    """
+    Proxy GET /api/history to backend GET /history/ with JWT auth required.
+    Supports optional start_time and end_time query parameters.
+    """
+    params = {}
+    if start_time:
+        params["start_time"] = start_time
+    if end_time:
+        params["end_time"] = end_time
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{settings.BACKEND_URL}/history/",
+            params=params,
+            timeout=5.0,
+        )
+        if response.status_code == 200:
+            return response.json()
+        raise HTTPException(status_code=response.status_code, detail="Backend error")
+
+
 class LoginRequest(BaseModel):
     """Login request model"""
 
