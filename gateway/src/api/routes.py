@@ -57,6 +57,7 @@ async def push_payload(payload: StreamPayload):
     No auth — internal network only.
     Fans out to all connected SSE clients.
     """
+    #`payload.model_dump()` converts the Pydantic `StreamPayload` object to a plain dict
     await broadcaster.push_event(payload.model_dump())
     await history_aggregator.process_payload(payload.model_dump())
     return {"status": "ok"}
@@ -84,6 +85,15 @@ async def stream_live(token: str = Query(..., description="JWT access token")):
             "X-Accel-Buffering": "no",
         },
     )
+@router.get("/api/algorithm/status")
+async def get_algorithm_status(current_user: Dict = Depends(get_current_user)):
+    """
+    Return current in-memory algorithm pipeline status derived from the active buffer.
+    Frontend calls this once on mount to populate the Statistics page.
+    """
+    return history_aggregator.get_current_status()
+
+
 @router.get("/api/history")
 async def get_history(
     start_time: Optional[str] = Query(None),

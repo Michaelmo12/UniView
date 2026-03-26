@@ -57,7 +57,7 @@ export function useSSEStream(token: string | null): Map<string, StreamPayload> {
 
     es.onerror = () => {
       // EventSource auto-reconnects with backoff when the connection drops.
-      // No manual retry logic needed — the browser handles it.
+      // Token expiry is handled centrally in AuthContext (interval check every 60s).
     };
 
     // Cleanup: runs when the component unmounts or when token changes.

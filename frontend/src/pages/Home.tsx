@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSSEStream } from "../hooks/useTrackingStream";
 import type { StreamPayload, TrackEntry } from "../types/tracking";
@@ -31,7 +31,24 @@ function DroneCell({ id, payload }: DroneCellProps) {
   // — if it's no longer the latest, we discard the draw.
   const latestPayloadRef = useRef<StreamPayload | null>(null);
 
+  // FPS counter — measures time between consecutive payloads for this drone
+  const lastFrameTimeRef = useRef<number | null>(null);
+  const [fps, setFps] = useState<number | null>(null);
+
+  // Actual resolution read from the decoded JPEG (naturalWidth x naturalHeight)
+  const [resolution, setResolution] = useState<string | null>(null);
+
   useEffect(() => {
+    // Measure FPS — time between this payload and the previous one
+    if (payload) {
+      const now = performance.now();
+      if (lastFrameTimeRef.current !== null) {
+        const delta = now - lastFrameTimeRef.current;
+        setFps(Math.round(1000 / delta));
+      }
+      lastFrameTimeRef.current = now;
+    }
+
     // Always update the ref first — this is what the stale-frame guard reads
     latestPayloadRef.current = payload;
     if (!payload || !canvasRef.current) return;
@@ -54,6 +71,7 @@ function DroneCell({ id, payload }: DroneCellProps) {
 
       // Fill the canvas with the decoded frame (stretched to canvas size)
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      setResolution(`${img.naturalWidth}×${img.naturalHeight}`);
 
       // Scale factors: bounding boxes from the algorithm are in original image
       // coordinates; we need to map them to canvas pixel coordinates
@@ -114,9 +132,9 @@ function DroneCell({ id, payload }: DroneCellProps) {
       </div>
 
       <div className="drone-cell__footer">
-        <span>1920×1080</span>
+        <span>{resolution ?? "--×--"}</span>
         <span>CH-{id.padStart(2, "0")}</span>
-        <span>30FPS</span>
+        <span>{fps !== null ? `${fps}FPS` : "--FPS"}</span>
       </div>
     </div>
   );

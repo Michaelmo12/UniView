@@ -104,22 +104,6 @@
   border-right: 1px solid rgba(0, 255, 136, 0.25);
 }
 
-/* Hover */
-.drone-cell:hover::before,
-.drone-cell:hover::after {
-  width: 16px; height: 16px;
-  border-color: rgba(0, 255, 136, 0.65);
-}
-
-.drone-cell:hover .drone-cell__corners::before,
-.drone-cell:hover .drone-cell__corners::after {
-  width: 16px; height: 16px;
-  border-color: rgba(0, 255, 136, 0.65);
-}
-
-.drone-cell:hover {
-  box-shadow: 0 0 18px rgba(0, 255, 136, 0.07), inset 0 0 24px rgba(0, 255, 136, 0.03);
-}
 
 /* Live tile — brighter corners + subtle glow when a payload is being received */
 .drone-cell--live::before,
@@ -130,24 +114,12 @@
 }
 
 .drone-cell--live {
-  box-shadow: 0 0 22px rgba(0, 255, 136, 0.1), inset 0 0 32px rgba(0, 255, 136, 0.04);
+  box-shadow: none;
 }
 
-/* Scanline overlay — purely decorative CRT effect drawn with a repeating
- * linear-gradient over the entire tile.  pointer-events:none means clicks
- * pass through to the canvas below. */
+/* Scanline overlay — disabled */
 .drone-cell__scanlines {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 3px,
-    rgba(0, 0, 0, 0.35) 3px,
-    rgba(0, 0, 0, 0.35) 4px
-  );
+  display: none;
 }
 
 /* Cell header — HUD bar pinned to the top of the tile.

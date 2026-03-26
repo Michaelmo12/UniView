@@ -309,6 +309,13 @@
   background: #00d4ff;
 }
 
+.history-chart__legend-item--orange {
+  color: rgba(255, 149, 0, 0.5);
+}
+.history-chart__legend-item--orange::before {
+  background: #ff9500;
+}
+
 .history-chart__legend-item--purple {
   color: rgba(185, 104, 255, 0.5);
 }

@@ -10,11 +10,21 @@ class APIError extends Error {
   }
 }
 
+// Called on any 401 response — clears storage and redirects to login.
+// Defined here so both apiRequest and useSSEStream can call it.
+export function handleUnauthorized(): void {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  sessionStorage.removeItem('token');
+  sessionStorage.removeItem('user');
+  window.location.href = '/login';
+}
+
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -31,6 +41,10 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
+    // Token expired or revoked — clear session and redirect to login
+    if (response.status === 401) {
+      handleUnauthorized();
+    }
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
     throw new APIError(response.status, error.detail || `HTTP ${response.status}`);
   }

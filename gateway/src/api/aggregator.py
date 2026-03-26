@@ -30,12 +30,14 @@ class HistoryAggregator:
         if self._current_minute is None:
             self._current_minute = minute_key
 
+        # If the payload belongs to a new minute, flush the previous minute's buffer
         if minute_key != self._current_minute:
             # Previous minute is complete — flush it
             await self._flush(self._current_minute)
             del self._buffers[self._current_minute]
             self._current_minute = minute_key
 
+        # Buffer the payload for the current minute
         self._buffers.setdefault(minute_key, []).append(payload)
 
     async def _flush(self, minute_key: str) -> None:
@@ -49,7 +51,7 @@ class HistoryAggregator:
             return
 
         track_counts = [len(p["tracks"]) for p in payloads]
-        avg_people_count = sum(track_counts) / len(track_counts)
+        avg_people_count = round(sum(track_counts) / len(track_counts))
         peak_people_count = max(track_counts)
         active_drones_count = max(p["active_drones_count"] for p in payloads)
         total_reid_matches = max(p["total_reid_matches"] for p in payloads)
@@ -85,6 +87,59 @@ class HistoryAggregator:
             logger.warning(
                 "Failed to flush history for minute %s: %s", minute_key, exc
             )
+
+
+    def get_current_status(self) -> dict:
+        """
+        Return the current in-memory system status derived from the active minute's buffer.
+        Called by GET /api/algorithm/status to give the frontend a snapshot.
+        """
+        _default = {"active_drones": 0, "active_tracks": 0, "server_fps": 0.0, "system_status": "Optimal"}
+
+        if self._current_minute is None:
+            return _default
+
+        payloads = self._buffers.get(self._current_minute, [])
+        if not payloads:
+            return _default
+
+        # active_drones: max reported across all payloads this minute
+        active_drones = max(p.get("active_drones_count", 0) for p in payloads)
+
+        # active_tracks: unique global_ids from the *latest* payload per drone
+        # (avoids double-counting the same person seen by multiple drones)
+        latest_per_drone: dict[str, dict] = {}
+        for p in payloads:
+            drone_id = p.get("drone_id", "")
+            latest_per_drone[drone_id] = p  # later payloads overwrite earlier ones
+
+        unique_global_ids: set[int] = set()
+        for p in latest_per_drone.values():
+            for track in p.get("tracks", []):
+                gid = track.get("global_id")
+                if gid is not None:
+                    unique_global_ids.add(gid)
+        active_tracks = len(unique_global_ids)
+
+        # avg_latency across all payloads this minute
+        latencies = [p.get("pipeline_latency_ms", 0.0) for p in payloads]
+        avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
+
+        server_fps = round(1000.0 / avg_latency, 1) if avg_latency > 0 else 0.0
+
+        if avg_latency < 200:
+            system_status = "Optimal"
+        elif avg_latency < 500:
+            system_status = "Warning"
+        else:
+            system_status = "Critical"
+
+        return {
+            "active_drones": active_drones,
+            "active_tracks": active_tracks,
+            "server_fps": server_fps,
+            "system_status": system_status,
+        }
 
 
 # Module-level singleton used by the push handler

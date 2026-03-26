@@ -3,7 +3,6 @@ HistoryLog model - persists aggregated per-minute tracking statistics
 Written by the gateway aggregator, read by the history dashboard frontend.
 """
 from sqlalchemy import Column, Integer, Float, DateTime
-from sqlalchemy.sql import func
 from core.database import Base
 
 
@@ -18,7 +17,7 @@ class HistoryLog(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     timestamp = Column(DateTime(timezone=True), unique=True, index=True, nullable=False)
-    avg_people_count = Column(Float, nullable=False)
+    avg_people_count = Column(Integer, nullable=False)
     peak_people_count = Column(Integer, nullable=False)
     active_drones_count = Column(Integer, nullable=False)
     total_reid_matches = Column(Integer, nullable=False)

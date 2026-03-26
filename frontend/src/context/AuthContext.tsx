@@ -18,10 +18,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedUser = storage.getItem('user');
 
     if (storedToken && storedUser) {
+      // Decode the JWT payload (middle part) and check expiration before restoring session.
+      // If the token is expired, clear storage and leave the user logged out.
+      try {
+        const payload = JSON.parse(atob(storedToken.split('.')[1]));
+        const isExpired = payload.exp && payload.exp * 1000 < Date.now();
+        if (isExpired) {
+          storage.removeItem('token');
+          storage.removeItem('user');
+          return;
+        }
+      } catch {
+        // Malformed token — clear it
+        storage.removeItem('token');
+        storage.removeItem('user');
+        return;
+      }
+
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
   }, []);
+
+  // Check token expiry every minute — if expired, log the user out automatically.
+  // This catches tokens that expire while the user is already on the page,
+  // so they don't stay in a "logged in" UI state with a dead token.
+  useEffect(() => {
+    if (!token) return;
+
+    const checkExpiry = () => {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+          logout();
+        }
+      } catch {
+        logout();
+      }
+    };
+
+    const interval = setInterval(checkExpiry, 60_000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
     const response = await authAPI.login({ email, password });

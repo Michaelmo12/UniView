@@ -4,6 +4,7 @@ History routes — GET /history/ and POST /history/ingest
 GET /history/ returns aggregated per-minute tracking rows ordered by timestamp ASC.
 POST /history/ingest accepts a completed-minute payload from the gateway aggregator.
 """
+
 from datetime import datetime
 from typing import List, Optional
 
@@ -26,10 +27,11 @@ router = APIRouter(prefix="/history", tags=["History"])
 # Pydantic schemas
 # ---------------------------------------------------------------------------
 
+
 class HistoryLogResponse(BaseModel):
     id: int
     timestamp: str
-    avg_people_count: float
+    avg_people_count: int
     peak_people_count: int
     active_drones_count: int
     total_reid_matches: int
@@ -40,7 +42,7 @@ class HistoryLogResponse(BaseModel):
 
 class HistoryIngestRequest(BaseModel):
     timestamp: str
-    avg_people_count: float
+    avg_people_count: int
     peak_people_count: int
     active_drones_count: int
     total_reid_matches: int
@@ -50,8 +52,13 @@ class HistoryIngestRequest(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse_iso(value: str, param_name: str) -> datetime:
-    """Parse an ISO 8601 string; raise HTTP 400 on failure."""
+    """Convert an ISO 8601 string (e.g. '2026-03-26T14:05:00+00:00') to a Python datetime.
+    Raises HTTP 400 if the string is malformed, naming which param was wrong.
+
+    reason: frontend uses strings and database needs datetimes which are database types, so we need to convert between them at the API layer.
+    """
     try:
         return datetime.fromisoformat(value)
     except (ValueError, TypeError):
@@ -62,6 +69,9 @@ def _parse_iso(value: str, param_name: str) -> datetime:
 
 
 def _row_to_dict(row: HistoryLog) -> dict:
+    """Convert a HistoryLog SQLAlchemy model instance to a dict suitable for JSON response.
+    This is needed because the timestamp field is a datetime object which is not JSON serializable by default.
+    """
     return {
         "id": row.id,
         "timestamp": row.timestamp.isoformat(),
@@ -76,10 +86,15 @@ def _row_to_dict(row: HistoryLog) -> dict:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.get("/", response_model=List[HistoryLogResponse])
 def get_history(
-    start_time: Optional[str] = Query(None, description="ISO 8601 start of range (inclusive)"),
-    end_time: Optional[str] = Query(None, description="ISO 8601 end of range (inclusive)"),
+    start_time: Optional[str] = Query(
+        None, description="ISO 8601 start of range (inclusive)"
+    ),
+    end_time: Optional[str] = Query(
+        None, description="ISO 8601 end of range (inclusive)"
+    ),
     db: Session = Depends(get_db),
 ):
     """
@@ -99,11 +114,14 @@ def get_history(
         dt_end = _parse_iso(end_time, "end_time")
         query = query.filter(HistoryLog.timestamp <= dt_end)
 
+    # .all() returns a list of HistoryLog model instances; convert each to dict for JSON response
     rows = query.order_by(HistoryLog.timestamp.asc()).all()
     return [_row_to_dict(r) for r in rows]
 
 
-@router.post("/ingest", status_code=status.HTTP_201_CREATED, response_model=HistoryLogResponse)
+@router.post(
+    "/ingest", status_code=status.HTTP_201_CREATED, response_model=HistoryLogResponse
+)
 def ingest_history(
     payload: HistoryIngestRequest,
     db: Session = Depends(get_db),
@@ -118,6 +136,8 @@ def ingest_history(
 
     # Check for existing row on this timestamp (upsert pattern)
     existing = db.query(HistoryLog).filter(HistoryLog.timestamp == ts).first()
+
+    # defence mechanism, shouldnt happen in normal operation since the gateway should only send one payload per minute, but if it does happen we want to update the existing row instead of erroring out with a duplicate key error
 
     if existing:
         existing.avg_people_count = payload.avg_people_count

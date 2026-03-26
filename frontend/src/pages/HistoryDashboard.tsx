@@ -45,6 +45,7 @@ interface HistoryLog {
   id: string;
   timestamp: string; // e.g. "14:32"
   totalPersons: number;
+  peakPersons: number;
   activeDrones: number;
   crossCameraMatches: number;
 }
@@ -87,7 +88,9 @@ function ChartTooltip({ active, payload, label }: CustomTooltipProps) {
           />
           <span className="history-chart__tooltip-label">
             {p.name === "totalPersons"
-              ? "Persons"
+              ? "Avg Persons"
+              : p.name === "peakPersons"
+              ? "Peak Persons"
               : p.name === "activeDrones"
               ? "Drones"
               : "Matches"}
@@ -121,7 +124,8 @@ function HistoryDashboard() {
           return {
             id: String(row.id),
             timestamp: `${hh}:${mm}`,
-            totalPersons: Math.round(row.avg_people_count),
+            totalPersons: row.avg_people_count,
+            peakPersons: row.peak_people_count,
             activeDrones: row.active_drones_count,
             crossCameraMatches: row.total_reid_matches,
           };
@@ -180,11 +184,11 @@ function HistoryDashboard() {
   const avgPersons = Math.round(
     logs.reduce((s, l) => s + l.totalPersons, 0) / logs.length
   );
-  const peakPersons = Math.max(...logs.map((l) => l.totalPersons));
+  const peakPersons = Math.max(...logs.map((l) => l.peakPersons));
   const peakDrones  = Math.max(...logs.map((l) => l.activeDrones));
   const totalMatches = logs.reduce((s, l) => s + l.crossCameraMatches, 0);
 
-  const peakPersonsTime = logs.find((l) => l.totalPersons === peakPersons)?.timestamp ?? "—";
+  const peakPersonsTime = logs.find((l) => l.peakPersons === peakPersons)?.timestamp ?? "—";
 
   const statCards: StatCardConfig[] = [
     {
@@ -303,7 +307,7 @@ function HistoryDashboard() {
 
               <Tooltip content={<ChartTooltip />} />
 
-              {/* Total Persons — primary neon green line */}
+              {/* Avg Persons — primary neon green line */}
               <Line
                 type="monotone"
                 dataKey="totalPersons"
@@ -311,6 +315,17 @@ function HistoryDashboard() {
                 strokeWidth={2}
                 dot={false}
                 activeDot={{ r: 4, fill: "#00ff88", stroke: "#0d0d0d", strokeWidth: 2 }}
+              />
+
+              {/* Peak Persons — orange envelope */}
+              <Line
+                type="monotone"
+                dataKey="peakPersons"
+                stroke="#ff9500"
+                strokeWidth={1.5}
+                strokeDasharray="4 2"
+                dot={false}
+                activeDot={{ r: 3, fill: "#ff9500", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
 
               {/* Active Drones — cyan secondary */}
@@ -340,7 +355,10 @@ function HistoryDashboard() {
           {/* Chart legend */}
           <div className="history-chart__legend">
             <span className="history-chart__legend-item history-chart__legend-item--green">
-              Tracked Persons
+              Avg Persons
+            </span>
+            <span className="history-chart__legend-item history-chart__legend-item--orange">
+              Peak Persons
             </span>
             <span className="history-chart__legend-item history-chart__legend-item--cyan">
               Active Drones
