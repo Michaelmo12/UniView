@@ -1,20 +1,88 @@
 import time
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Query
+from fastapi.responses import StreamingResponse
 
 # Pydantic models for request/response validation
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 # HTTP client to make requests to backend
 import httpx
-from src.core.auth import create_jwt, get_current_user, get_admin_user, oauth2_scheme
+from src.core.auth import create_jwt, get_current_user, get_admin_user, oauth2_scheme, verify_jwt
 from src.core import add_token_to_blacklist
 from src.config import settings
-from jose import jwt as jose_jwt
+from src.api.sse import broadcaster
+from jose import jwt as jose_jwt, JWTError
 
 
 router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# StreamPayload schema (mirrors algorithm/src/pipeline/output_formatter.py)
+# ---------------------------------------------------------------------------
+
+class TrackEntry(BaseModel):
+    global_id: int
+    x: int
+    y: int
+    width: int
+    height: int
+    confidence: float
+    state: str
+    frames_tracked: int
+
+
+class StreamPayload(BaseModel):
+    timestamp: str
+    drone_id: str
+    frame_base64: str
+    tracks: List[TrackEntry]
+    active_drones_count: int
+    total_reid_matches: int
+    pipeline_latency_ms: float
+    avg_confidence: float
+
+
+# ---------------------------------------------------------------------------
+# Internal push endpoint (algorithm -> gateway)
+# ---------------------------------------------------------------------------
+
+@router.post("/api/internal/push", status_code=200)
+async def push_payload(payload: StreamPayload):
+    """
+    Receive StreamPayload from algorithm microservice.
+    No auth — internal network only.
+    Fans out to all connected SSE clients.
+    """
+    await broadcaster.push_event(payload.model_dump())
+    return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# SSE stream endpoint (gateway -> frontend)
+# ---------------------------------------------------------------------------
+
+@router.get("/stream/live")
+async def stream_live(token: str = Query(..., description="JWT access token")):
+    """
+    Server-Sent Events stream. JWT via query param (EventSource limitation).
+    Frontend: new EventSource('/stream/live?token=<jwt>')
+    """
+    try:
+        verify_jwt(token)
+    except (JWTError, Exception):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    return StreamingResponse(
+        broadcaster.subscribe(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 class LoginRequest(BaseModel):
     """Login request model"""
 

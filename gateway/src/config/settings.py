@@ -21,7 +21,6 @@ class Settings(BaseSettings):
     # Gateway Settings
     GATEWAY_HOST: str = "0.0.0.0"
     GATEWAY_PORT: int = 8080
-
     class Config:
         env_file = ".env"
         case_sensitive = True

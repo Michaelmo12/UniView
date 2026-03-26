@@ -9,10 +9,7 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Setup middleware (CORS, etc.)
 setup_middleware(app)
-
-# Include HTTP routes
 app.include_router(router)
 
 
@@ -23,8 +20,10 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "/health",
-            "login": "/login",
-            "users": "/users",
+            "login": "/api/login",
+            "users": "/api/users",
             "docs": "/docs",
+            "push": "/api/internal/push",
+            "stream": "/stream/live",
         }
     }
