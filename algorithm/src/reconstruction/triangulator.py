@@ -95,7 +95,7 @@ class Triangulator:
 
         for i in range(num_views):
             for j in range(i + 1, num_views):
-                point_3d = self._triangulate_two_view(
+                point_3d = self._triangulate_two_view_whitebox(
                     points_2d[i],
                     points_2d[j],
                     projection_matrices[i],
