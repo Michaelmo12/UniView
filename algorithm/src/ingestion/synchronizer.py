@@ -49,7 +49,8 @@ class FrameSynchronizer:
         self.input_queue = input_queue
         self.output_queue = output_queue
 
-        self.num_drones = settings.ingestion.num_drones
+        self.drone_ids = list(settings.ingestion.drone_ids)
+        self.num_drones = len(self.drone_ids)
         self.sync_timeout = settings.ingestion.sync_timeout
         self.max_buffer_size = settings.ingestion.max_buffer_size
 
@@ -243,7 +244,7 @@ class FrameSynchronizer:
             frame_num=frame_num,
             timestamp=timestamp,
             frames=frames,
-            num_drones_expected=self.num_drones,
+            expected_drone_ids=self.drone_ids,
         )
 
         if complete:

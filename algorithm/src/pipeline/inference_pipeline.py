@@ -25,7 +25,7 @@ from src.features.projection_matrix import ProjectionMatrixCalculator
 from src.features.wch_extractor import WCHExtractor
 from src.fusion.cross_camera_matcher import CrossCameraMatcher
 from src.ingestion.synchronizer import FrameSynchronizer
-from src.ingestion.tcp_receiver import TCPReceiver
+from src.ingestion.enet_receiver import create_enet_receivers, start_all_enet_receivers, stop_all_enet_receivers
 from src.pipeline.output_formatter import build_payloads
 from src.reconstruction.scene_reconstructor import SceneReconstructor
 from src.tracking.tracker import PersonTracker
@@ -43,31 +43,33 @@ async def run_pipeline_loop() -> None:
     """
     logger.info("Initializing pipeline components...")
 
-    # --- Initialize all stages ---
-    batch_detector = BatchDetector()
-    wch_extractor = WCHExtractor(settings.features)
-    projection_calc = ProjectionMatrixCalculator()
-    cross_camera_matcher = CrossCameraMatcher(settings.fusion)
-    scene_reconstructor = SceneReconstructor(settings.reconstruction)
-    person_tracker = PersonTracker()
+    try:
+        # --- Initialize all stages ---
+        batch_detector = BatchDetector()
+        wch_extractor = WCHExtractor(settings.features)
+        projection_calc = ProjectionMatrixCalculator()
+        cross_camera_matcher = CrossCameraMatcher(settings.fusion)
+        scene_reconstructor = SceneReconstructor(settings.reconstruction)
+        person_tracker = PersonTracker()
 
-    # --- Initialize ingestion (threading-based) ---
-    receiver_queue: queue.Queue = queue.Queue()
-    sync_queue: queue.Queue = queue.Queue()
+        # --- Initialize ingestion (threading-based) ---
+        receiver_queue: queue.Queue = queue.Queue()
+        sync_queue: queue.Queue = queue.Queue()
 
-    receivers: dict[int, TCPReceiver] = {}
-    for drone_id in range(1, settings.ingestion.num_drones + 1):
-        receivers[drone_id] = TCPReceiver(drone_id=drone_id, output_queue=receiver_queue)
+        drone_ids = settings.ingestion.drone_ids
+        receivers = create_enet_receivers(drone_ids, output_queue=receiver_queue)
 
-    synchronizer = FrameSynchronizer(
-        input_queue=receiver_queue,
-        output_queue=sync_queue,
-    )
+        synchronizer = FrameSynchronizer(
+            input_queue=receiver_queue,
+            output_queue=sync_queue,
+        )
 
-    # Start ingestion threads
-    synchronizer.start()
-    for receiver in receivers.values():
-        receiver.start()
+        # Start ingestion threads
+        synchronizer.start()
+        start_all_enet_receivers(receivers)
+    except Exception as exc:
+        logger.error("Pipeline initialization failed: %s", exc, exc_info=True)
+        raise
 
     logger.info("Pipeline initialized. Waiting for frames...")
 
@@ -80,16 +82,29 @@ async def run_pipeline_loop() -> None:
                 await asyncio.sleep(0.05)  # yield control, retry in 50ms
                 continue
 
+            t_dequeued = time.monotonic()
             frame_num = sync_set.frame_num
-            pipeline_start = time.monotonic()
+            pipeline_start = t_dequeued
 
-            logger.debug(
-                "Processing frame %d (%d drones)", frame_num, sync_set.num_drones_present
+            if not hasattr(run_pipeline_loop, '_last_frame_t'):
+                run_pipeline_loop._last_frame_t = t_dequeued
+            gap_ms = (t_dequeued - run_pipeline_loop._last_frame_t) * 1000
+            run_pipeline_loop._last_frame_t = t_dequeued
+
+            logger.info(
+                "Frame %d dequeued (%d/%d drones) — gap since last frame: %.0fms",
+                frame_num,
+                sync_set.num_drones_present,
+                sync_set.num_drones_expected,
+                gap_ms,
             )
 
             try:
+                t0 = time.monotonic()
+
                 # Stage 1: Detection
                 detection_sets = batch_detector.process(sync_set)
+                t1 = time.monotonic()
 
                 # Stage 2: Feature extraction + projection matrices
                 calibrations = sync_set.get_all_calibrations()
@@ -99,13 +114,21 @@ async def run_pipeline_loop() -> None:
                 for drone_id, drone_frame in sync_set.frames.items():
                     det_set = detection_sets.get(drone_id)
                     if det_set and not det_set.is_empty:
+                        _tw0 = time.monotonic()
                         frame_features = wch_extractor.extract_frame(
                             frame=drone_frame,
                             detectionSet=det_set,
                         )
+                        logger.info(
+                            "Frame %d drone %d WCH: %.1fms (%d dets)",
+                            frame_num, drone_id,
+                            (time.monotonic() - _tw0) * 1000,
+                            len(det_set.detections),
+                        )
                         features_dict[drone_id] = frame_features.features
                     else:
                         features_dict[drone_id] = []
+                t2 = time.monotonic()
 
                 # Stage 3: Cross-camera fusion
                 fusion_result = cross_camera_matcher.match_frame(
@@ -113,6 +136,7 @@ async def run_pipeline_loop() -> None:
                     projection_matrices=projection_matrices,
                     features_dict=features_dict,
                 )
+                t3 = time.monotonic()
 
                 # Stage 4: 3D reconstruction
                 reconstruction_result = scene_reconstructor.reconstruct(
@@ -120,9 +144,31 @@ async def run_pipeline_loop() -> None:
                     detection_sets=detection_sets,
                     sync_set=sync_set,
                 )
+                t4 = time.monotonic()
 
                 # Stage 5: Temporal tracking
                 tracking_result = person_tracker.update(reconstruction_result)
+                t5 = time.monotonic()
+
+                stage_timings_ms = {
+                    "detection":      round((t1 - t0) * 1000, 2),
+                    "features":       round((t2 - t1) * 1000, 2),
+                    "fusion":         round((t3 - t2) * 1000, 2),
+                    "reconstruction": round((t4 - t3) * 1000, 2),
+                    "tracking":       round((t5 - t4) * 1000, 2),
+                    "total":          round((t5 - t0) * 1000, 2),
+                }
+
+                logger.info(
+                    "Frame %d timings (ms): det=%.1f feat=%.1f fus=%.1f rec=%.1f trk=%.1f | total=%.1f",
+                    frame_num,
+                    stage_timings_ms["detection"],
+                    stage_timings_ms["features"],
+                    stage_timings_ms["fusion"],
+                    stage_timings_ms["reconstruction"],
+                    stage_timings_ms["tracking"],
+                    stage_timings_ms["total"],
+                )
 
                 # Output: POST one StreamPayload per drone to gateway
                 for payload in build_payloads(
@@ -130,6 +176,7 @@ async def run_pipeline_loop() -> None:
                     detection_sets=detection_sets,
                     sync_set=sync_set,
                     pipeline_start_time=pipeline_start,
+                    stage_timings_ms=stage_timings_ms,
                 ):
                     await post_payload(payload)
 
@@ -151,8 +198,7 @@ async def run_pipeline_loop() -> None:
 
     except asyncio.CancelledError:
         logger.info("Pipeline loop cancelled. Shutting down ingestion...")
-        for receiver in receivers.values():
-            receiver.stop()
+        stop_all_enet_receivers(receivers)
         synchronizer.stop()
         logger.info("Pipeline shutdown complete.")
         raise

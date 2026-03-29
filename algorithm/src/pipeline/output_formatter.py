@@ -41,6 +41,7 @@ def build_payloads(
     detection_sets: dict[int, DetectionSet],
     sync_set: SynchronizedFrameSet,
     pipeline_start_time: float,
+    stage_timings_ms: dict | None = None,
 ) -> Iterator[dict]:
     """
     Yield one StreamPayload dict per active drone in sync_set.
@@ -120,6 +121,32 @@ def build_payloads(
                 "frames_tracked": int(p.frames_tracked),
             })
 
+        # Also include single-view persons visible on this drone (global_id = -1)
+        for person in result.single_view_persons:
+            drone_dets = [
+                (did, lid)
+                for did, lid in person.source_detections
+                if did == drone_id
+            ]
+            if not drone_dets:
+                continue
+
+            _, local_id = drone_dets[0]
+            det = detection_lookup.get((drone_id, local_id))
+            if det is None:
+                continue
+
+            tracks.append({
+                "global_id": -1,
+                "x": int(float(det.bbox.x1)),
+                "y": int(float(det.bbox.y1)),
+                "width": int(float(det.bbox.x2) - float(det.bbox.x1)),
+                "height": int(float(det.bbox.y2) - float(det.bbox.y1)),
+                "confidence": float(det.confidence),
+                "state": "SINGLE_VIEW",
+                "frames_tracked": 0,
+            })
+
         avg_confidence = float(sum(confidences) / len(confidences)) if confidences else 0.0
 
         yield {
@@ -131,4 +158,5 @@ def build_payloads(
             "total_reid_matches": total_reid_matches,
             "pipeline_latency_ms": float(latency_ms),
             "avg_confidence": avg_confidence,
+            "stage_timings_ms": stage_timings_ms or {},
         }

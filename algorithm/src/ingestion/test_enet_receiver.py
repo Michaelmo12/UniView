@@ -232,11 +232,55 @@ def run_unit_test() -> bool:
 # Live demo (requires running enet_drone_streamer)
 # =============================================================================
 
+def _overlay_info(image: np.ndarray, frame: "DroneFrame", frame_idx: int, total: int) -> np.ndarray:
+    """Draw metadata overlay on a copy of the frame."""
+    vis = image.copy()
+    C = frame.calibration.camera_center
+    K = frame.calibration.K
+
+    R = frame.calibration.R
+    t = frame.calibration.t.flatten()
+    dist = frame.calibration.dist
+
+    lines = [
+        f"Drone {frame.drone_id}  |  Frame {frame.frame_num}  ({frame_idx}/{total})  |  {frame.frame_width}x{frame.frame_height}  |  ts={frame.timestamp:.3f}s",
+        f"K:  fx={K[0,0]:.2f}  fy={K[1,1]:.2f}  cx={K[0,2]:.2f}  cy={K[1,2]:.2f}",
+        f"R:  [{R[0,0]:.4f}  {R[0,1]:.4f}  {R[0,2]:.4f}]",
+        f"    [{R[1,0]:.4f}  {R[1,1]:.4f}  {R[1,2]:.4f}]",
+        f"    [{R[2,0]:.4f}  {R[2,1]:.4f}  {R[2,2]:.4f}]",
+        f"t:  [{t[0]:.4f}  {t[1]:.4f}  {t[2]:.4f}]",
+        f"dist: k1={dist[0]:.6f}  k2={dist[1]:.6f}  p1={dist[2]:.6f}  p2={dist[3]:.6f}  k3={dist[4]:.6f}",
+        f"Camera center: [{C[0]:.4f}  {C[1]:.4f}  {C[2]:.4f}]",
+    ]
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.7
+    thickness = 2
+    pad = 10
+    line_h = 28
+
+    # Semi-transparent dark background behind text
+    overlay_h = pad * 2 + line_h * len(lines)
+    roi = vis[0:overlay_h, 0:vis.shape[1]]
+    dark = np.zeros_like(roi)
+    cv2.addWeighted(dark, 0.55, roi, 0.45, 0, roi)
+    vis[0:overlay_h, 0:vis.shape[1]] = roi
+
+    for idx, line in enumerate(lines):
+        y = pad + idx * line_h + 24
+        # Shadow
+        cv2.putText(vis, line, (pad + 1, y + 1), font, font_scale, (0, 0, 0), thickness + 1, cv2.LINE_AA)
+        # Text
+        cv2.putText(vis, line, (pad, y), font, font_scale, (255, 255, 255), thickness, cv2.LINE_AA)
+
+    return vis
+
+
 def run_live_demo(drone_id: int = 1, num_frames: int = 5) -> None:
     """
     Connect to a running enet_drone_streamer and receive num_frames frames.
 
-    Prints frame metadata for each received frame and final stats on exit.
+    Displays each frame in a window with metadata overlay.
     """
     logging.basicConfig(
         level=logging.INFO,
@@ -255,6 +299,8 @@ def run_live_demo(drone_id: int = 1, num_frames: int = 5) -> None:
 
     frames_q: queue.Queue = queue.Queue()
     receiver = ENetReceiver(drone_id=drone_id, output_queue=frames_q)
+
+    window = f"ENet Receiver — Drone {drone_id}"
 
     try:
         receiver.start()
@@ -282,12 +328,26 @@ def run_live_demo(drone_id: int = 1, num_frames: int = 5) -> None:
                     C[1],
                     C[2],
                 )
+
+                # Show frame with overlay
+                vis = _overlay_info(frame.frame, frame, i + 1, num_frames)
+                # Scale down for display (1920x1080 is large)
+                display = cv2.resize(vis, (960, 540))
+                cv2.imshow(window, display)
+                cv2.waitKey(1)
+
             except queue.Empty:
                 logger.warning("No frame received within 10s timeout (frame %d/%d)", i + 1, num_frames)
                 break
 
+        # Hold last frame until keypress
+        print("\nPress any key in the image window to exit...")
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
+        cv2.destroyAllWindows()
 
     finally:
         receiver.stop()

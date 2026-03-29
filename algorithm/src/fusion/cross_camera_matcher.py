@@ -16,7 +16,7 @@ import logging
 import time
 import itertools
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, deque
 
 from src.fusion.models import CrossCameraMatch, MatchGroup, FusionResult
 from src.fusion.fundamental_matrix import compute_fundamental_matrix
@@ -325,19 +325,19 @@ class CrossCameraMatcher:
             if start_node in visited:
                 continue
 
-            # BFS to find all nodes in this component
+            # BFS to find all nodes in this component (deque for O(1) popleft)
             component = set()
-            queue = [start_node]
+            bfs_queue = deque([start_node])
             component.add(start_node)
             visited.add(start_node)
 
-            while queue:
-                node = queue.pop(0)
+            while bfs_queue:
+                node = bfs_queue.popleft()
                 for neighbor in graph[node]:
                     if neighbor not in visited:
                         visited.add(neighbor)
                         component.add(neighbor)
-                        queue.append(neighbor)
+                        bfs_queue.append(neighbor)
 
             # Build MatchGroup from component
             detections = sorted(component)  # List of (drone_id, local_id) tuples

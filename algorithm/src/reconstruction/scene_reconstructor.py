@@ -82,9 +82,10 @@ class SceneReconstructor:
         # Step 1: Triangulate match groups — collect all raw pairwise Point3Ds
         triangulated_points = []
         rejected_count = 0
+        fallback_detections: list[tuple[int, int]] = []
 
         for group in fusion_result.match_groups:
-            raw_points = self.triangulator.triangulate_match_group(
+            raw_points, used_fallback = self.triangulator.triangulate_match_group_robust(
                 group, detection_sets, sync_set
             )
 
@@ -92,12 +93,19 @@ class SceneReconstructor:
                 triangulated_points.extend(raw_points)
             else:
                 rejected_count += 1
+                if used_fallback:
+                    # Robust pruning failed — treat all detections in this group as unmatched
+                    for det_id in group.detections:
+                        fallback_detections.append(det_id)
 
         # Step 2: Identify unmatched detections
         # Build set of all (drone_id, local_id) that appear in match groups
         matched_detections = set()
         for group in fusion_result.match_groups:
             matched_detections.update(group.detections)
+        # Detections from failed robust groups are also treated as unmatched
+        for det_id in fallback_detections:
+            matched_detections.discard(det_id)
 
         # Find all detections not in matched set
         unmatched_detections = []

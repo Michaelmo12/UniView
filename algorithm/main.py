@@ -11,17 +11,29 @@ Run with (from UniView/ root):
     uvicorn algorithm.main:app --host 0.0.0.0 --port 8001
 """
 
+import argparse
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+
+# Must be set before OpenVINO / OpenMP loads. These cap the thread pools that
+# OpenVINO uses for inference so the 4 ENet receiver threads (cv2.imdecode)
+# don't starve YOLO mid-inference, causing 5000ms detection times.
+os.environ.setdefault("OMP_NUM_THREADS", "4")
+os.environ.setdefault("OPENVINO_CPU_THREADS_NUM", "4")
+
+import cv2
+cv2.setNumThreads(1)
 
 # Ensure algorithm/ directory is on path so `src.*` imports resolve.
 _algorithm_dir = Path(__file__).parent
 if str(_algorithm_dir) not in sys.path:
     sys.path.insert(0, str(_algorithm_dir))
 
+import uvicorn
 from fastapi import FastAPI
 
 from src.api.gateway_client import close_client, init_client
@@ -43,6 +55,14 @@ async def lifespan(app: FastAPI):
 
     logger.info("Starting algorithm pipeline background task...")
     task = asyncio.create_task(run_pipeline_loop())
+
+    def _on_pipeline_done(t: asyncio.Task) -> None:
+        if not t.cancelled() and t.exception() is not None:
+            logger.error(
+                "Pipeline task crashed: %s", t.exception(), exc_info=t.exception()
+            )
+
+    task.add_done_callback(_on_pipeline_done)
     yield
 
     logger.info("Shutting down pipeline...")
@@ -72,3 +92,21 @@ async def health() -> dict:
         "service": "algorithm",
         "version": "1.0.0",
     }
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--drone-ids",
+        type=str,
+        default="",
+        help="Comma-separated drone IDs to connect to, e.g. 3,4,6,7 (overrides settings default)",
+    )
+    args, _ = parser.parse_known_args()
+
+    if args.drone_ids:
+        ids = [int(x) for x in args.drone_ids.split(",") if x.strip()]
+        settings.ingestion.drone_ids = ids
+        logger.info("Drone IDs overridden via CLI: %s", ids)
+
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=False)

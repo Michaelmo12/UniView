@@ -119,8 +119,13 @@ class DroneFrame:
         drone_id: Which drone this frame came from (1-8)
         frame_num: Frame sequence number (0-999 in MATRIX dataset)
         timestamp: When the frame was captured (seconds since epoch)
-        frame: BGR image as numpy array, shape (H, W, 3)
+        frame: BGR image as numpy array, shape (H, W, 3).
+               May be None when jpeg_bytes is set — call decode_frame() first.
         calibration: Camera parameters for this frame
+        jpeg_bytes: Raw JPEG bytes (optional). When set, frame may be None until
+                    decode_frame() is called. This enables lazy decoding: ENet
+                    receiver threads store raw bytes, decode happens in the pipeline
+                    thread to avoid OpenCV thread-pool contention.
     """
 
     drone_id: int
@@ -170,7 +175,14 @@ class SynchronizedFrameSet:
     frame_num: int  # Which frame number (0-999)
     timestamp: float  # Reference timestamp
     frames: dict[int, DroneFrame]  # {drone_id: DroneFrame}
-    num_drones_expected: int = 8  # MATRIX has 8 cameras
+    num_drones_expected: int = 8  # legacy: total count (used by scripts)
+    expected_drone_ids: list = None  # explicit IDs (e.g. [3,4,6,7]); overrides num_drones_expected
+
+    def __post_init__(self):
+        if self.expected_drone_ids is not None:
+            self.num_drones_expected = len(self.expected_drone_ids)
+        else:
+            self.expected_drone_ids = list(range(1, self.num_drones_expected + 1))
 
     @property
     def num_drones_present(self) -> int:
@@ -179,13 +191,12 @@ class SynchronizedFrameSet:
     @property
     def is_complete(self) -> bool:
         """checks if there are frames from all expected drones in this set"""
-        return self.num_drones_present == self.num_drones_expected
+        return set(self.frames.keys()) >= set(self.expected_drone_ids)
 
     @property
     def missing_drones(self) -> list[int]:
-        expected = set(range(1, self.num_drones_expected + 1))
         present = set(self.frames.keys())
-        return sorted(expected - present)
+        return sorted(set(self.expected_drone_ids) - present)
 
     @property
     def drone_ids(self) -> list[int]:

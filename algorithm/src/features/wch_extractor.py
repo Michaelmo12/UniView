@@ -15,7 +15,7 @@ import numpy as np  # For numerical operations (histograms, normalization)
 from src.detection.models import Detection, DetectionSet
 from src.ingestion.models import DroneFrame
 from src.features.models import PersonFeatures, FrameFeatures
-from src.config.settings import FeatureConfig
+from src.config.settings import FeatureConfig, settings
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,18 @@ class WCHExtractor:
             try:
                 wch_vector = self._extract_single(frame.frame, detection)
                 if wch_vector is not None:
+                    # Keep image-space bbox for crops/visualization, but use geometry-space
+                    # center for epipolar and triangulation related math.
+                    bbox_center = detection.bbox.center
+                    geom_center = bbox_center
+                    if settings.geometry.flip_x_for_geometry:
+                        width = (
+                            settings.geometry.image_width_override
+                            if settings.geometry.image_width_override > 0
+                            else frame.frame.shape[1]
+                        )
+                        geom_center = (float(width) - float(bbox_center[0]), float(bbox_center[1]))
+
                     # Set feature vector on detection for downstream stages
                     detection.features = wch_vector
 
@@ -76,7 +88,7 @@ class WCHExtractor:
                         frame_num=detection.frame_num,
                         local_id=detection.local_id,
                         wch=wch_vector,
-                        bbox_center=detection.bbox.center,
+                        bbox_center=geom_center,
                         projection_matrix=frame.calibration.projection_matrix,
                         confidence=detection.confidence,
                     )
@@ -182,9 +194,10 @@ class WCHExtractor:
         if norm > 1e-10:
             wch = wch / norm
         else:
-            # Degenerate case (uniform black crop) - return zero vector
-            # for the reason to avoid division by zero and maintain consistent output shape
-            wch = wch / 1e-10
+            # Degenerate case (uniform/black crop) — return zero vector.
+            # Dividing by 1e-10 would produce ~1e10-scale values and break
+            # cosine similarity downstream; zeros are safer (no match).
+            wch = np.zeros_like(wch)
 
         return wch.astype(np.float64)
 

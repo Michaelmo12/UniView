@@ -36,6 +36,15 @@ class YOLODetector:
             self.imgsz,
         )
 
+        # Warmup: run one dummy inference so OpenVINO JIT-compiles the model now.
+        # Without this the first real frame takes ~5s instead of ~100ms.
+        logger.info("Warming up YOLO model (OpenVINO JIT)...")
+        _dummy = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        self.model.predict(_dummy, conf=self.conf_threshold, iou=self.iou_threshold,
+                           classes=[self.person_class_id], verbose=False,
+                           imgsz=self.imgsz, device=self.device)
+        logger.info("YOLO warmup complete.")
+
     def detect(self, frame: np.ndarray, drone_id: int, frame_num: int) -> DetectionSet:
 
         start_time = time.time()
