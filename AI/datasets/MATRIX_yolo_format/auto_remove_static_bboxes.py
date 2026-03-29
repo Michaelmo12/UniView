@@ -11,6 +11,7 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import argparse
 
 
 def calculate_bbox_variance(image, bbox):
@@ -174,6 +175,212 @@ def process_frame(
         save_filtered_labels_yolo(drone_id, frame_num, filtered_bboxes, labels_dir, img)
 
     return stats
+
+
+def _bbox_from_view(view: dict) -> dict:
+    return {
+        "xmin": int(view["xmin"]),
+        "ymin": int(view["ymin"]),
+        "xmax": int(view["xmax"]),
+        "ymax": int(view["ymax"]),
+    }
+
+
+def process_real_matrix_frame(
+    frame_num: int,
+    drone_ids: list[int],
+    variance_threshold: float,
+    real_dataset_root: Path,
+    output_annotations_dir: Path,
+) -> dict:
+    """Filter static bboxes in original MATRIX JSON annotations for one frame.
+
+    Writes a new JSON file to output_annotations_dir and never modifies source JSON.
+    """
+    annotations_dir = real_dataset_root / "annotations_positions"
+    images_root = real_dataset_root / "image_subsets"
+
+    in_json = annotations_dir / f"{frame_num:04d}.json"
+    if not in_json.exists():
+        return {
+            "frame_num": frame_num,
+            "exists": False,
+            "total_bboxes": 0,
+            "removed_bboxes": 0,
+            "kept_bboxes": 0,
+        }
+
+    with open(in_json, "r", encoding="utf-8") as f:
+        annotations = json.load(f)
+
+    images_by_drone: dict[int, np.ndarray] = {}
+    for drone_id in drone_ids:
+        img_path = images_root / f"D{drone_id}" / f"{frame_num:04d}.png"
+        img = cv2.imread(str(img_path))
+        if img is not None:
+            images_by_drone[drone_id] = img
+
+    stats = {
+        "frame_num": frame_num,
+        "exists": True,
+        "total_bboxes": 0,
+        "removed_bboxes": 0,
+        "kept_bboxes": 0,
+    }
+
+    drone_set = set(drone_ids)
+
+    # Filter per-view bbox. If a view is static/uniform, mark it as absent (-1s)
+    # while preserving the person and all other views.
+    for person in annotations:
+        for view in person.get("views", []):
+            view_num = int(view.get("viewNum", -1))
+            drone_id = view_num + 1
+            if drone_id not in drone_set:
+                continue
+            if drone_id not in images_by_drone:
+                continue
+
+            xmin = int(view.get("xmin", -1))
+            ymin = int(view.get("ymin", -1))
+            xmax = int(view.get("xmax", -1))
+            ymax = int(view.get("ymax", -1))
+
+            if xmin == -1 or ymin == -1 or xmax == -1 or ymax == -1:
+                continue
+
+            stats["total_bboxes"] += 1
+            bbox = _bbox_from_view(view)
+            variance = calculate_bbox_variance(images_by_drone[drone_id], bbox)
+
+            if variance < variance_threshold:
+                view["xmin"] = -1
+                view["ymin"] = -1
+                view["xmax"] = -1
+                view["ymax"] = -1
+                stats["removed_bboxes"] += 1
+            else:
+                stats["kept_bboxes"] += 1
+
+    output_annotations_dir.mkdir(parents=True, exist_ok=True)
+    out_json = output_annotations_dir / f"{frame_num:04d}.json"
+    with open(out_json, "w", encoding="utf-8") as f:
+        json.dump(annotations, f, indent=2)
+
+    return stats
+
+
+def batch_process_real_matrix(
+    variance_threshold: float = 80,
+    start_drone: int = 1,
+    end_drone: int = 8,
+    drone_ids_override: list[int] | None = None,
+    start_frame: int = 0,
+    num_frames: int = 200,
+    real_dataset_root: Path | None = None,
+    output_annotations_dir: Path | None = None,
+) -> None:
+    """Create a cleaned annotation folder from original MATRIX JSON annotations."""
+    script_root = Path(__file__).parent
+    if real_dataset_root is None:
+        real_dataset_root = script_root.parent.parent.parent / "MATRIX_30x30" / "MATRIX_30x30"
+
+    if output_annotations_dir is None:
+        output_annotations_dir = real_dataset_root / f"annotations_positions_static_filtered_v{int(variance_threshold)}"
+
+    if drone_ids_override:
+        drone_ids = sorted(set(drone_ids_override))
+    else:
+        drone_ids = list(range(start_drone, end_drone + 1))
+    frame_nums = list(range(start_frame, start_frame + num_frames))
+
+    print("=" * 80)
+    print("Real MATRIX Static BBox Filter (non-destructive)")
+    print("=" * 80)
+    print(f"Dataset root: {real_dataset_root}")
+    print(f"Output annotations: {output_annotations_dir}")
+    print(f"Drones: {start_drone}-{end_drone}")
+    print(f"Frames: {start_frame}-{start_frame + num_frames - 1} ({num_frames} total)")
+    print(f"Variance threshold: {variance_threshold}")
+    print("=" * 80)
+
+    total = {
+        "frames_written": 0,
+        "frames_missing": 0,
+        "total_bboxes": 0,
+        "removed_bboxes": 0,
+        "kept_bboxes": 0,
+    }
+    per_drone_removed = {d: 0 for d in drone_ids}
+
+    for frame_num in tqdm(frame_nums, desc="Filtering real MATRIX frames"):
+        stats = process_real_matrix_frame(
+            frame_num=frame_num,
+            drone_ids=drone_ids,
+            variance_threshold=variance_threshold,
+            real_dataset_root=real_dataset_root,
+            output_annotations_dir=output_annotations_dir,
+        )
+
+        if not stats["exists"]:
+            total["frames_missing"] += 1
+            continue
+
+        total["frames_written"] += 1
+        total["total_bboxes"] += stats["total_bboxes"]
+        total["removed_bboxes"] += stats["removed_bboxes"]
+        total["kept_bboxes"] += stats["kept_bboxes"]
+
+        # Recount removals per drone for this frame using saved JSON + source JSON
+        # to keep this utility simple and robust even when view order varies.
+        src_json = real_dataset_root / "annotations_positions" / f"{frame_num:04d}.json"
+        dst_json = output_annotations_dir / f"{frame_num:04d}.json"
+        with open(src_json, "r", encoding="utf-8") as f:
+            src = json.load(f)
+        with open(dst_json, "r", encoding="utf-8") as f:
+            dst = json.load(f)
+
+        for p_src, p_dst in zip(src, dst):
+            for v_src, v_dst in zip(p_src.get("views", []), p_dst.get("views", [])):
+                d = int(v_src.get("viewNum", -1)) + 1
+                if d not in per_drone_removed:
+                    continue
+                src_vis = int(v_src.get("xmin", -1)) != -1
+                dst_vis = int(v_dst.get("xmin", -1)) != -1
+                if src_vis and (not dst_vis):
+                    per_drone_removed[d] += 1
+
+    summary_path = output_annotations_dir.parent / f"{output_annotations_dir.name}_summary.json"
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "dataset_root": str(real_dataset_root),
+                "output_annotations": str(output_annotations_dir),
+                "variance_threshold": variance_threshold,
+                "start_drone": start_drone,
+                "end_drone": end_drone,
+                "start_frame": start_frame,
+                "num_frames": num_frames,
+                "totals": total,
+                "removed_by_drone": per_drone_removed,
+            },
+            f,
+            indent=2,
+        )
+
+    print("\n" + "=" * 80)
+    print("Completed")
+    print("=" * 80)
+    print(f"Frames written: {total['frames_written']}")
+    print(f"Frames missing: {total['frames_missing']}")
+    print(f"Total bboxes checked: {total['total_bboxes']}")
+    print(f"Removed static bboxes: {total['removed_bboxes']}")
+    print(f"Kept bboxes: {total['kept_bboxes']}")
+    print("Removed by drone:")
+    for d in drone_ids:
+        print(f"  D{d}: {per_drone_removed[d]}")
+    print(f"Output annotations folder: {output_annotations_dir}")
+    print(f"Summary file: {summary_path}")
 
 
 def save_filtered_labels_yolo(drone_id, frame_num, filtered_bboxes, labels_dir, img):
@@ -410,43 +617,45 @@ def batch_process_automatic(
 
 
 if __name__ == "__main__":
-    import sys
+    parser = argparse.ArgumentParser(
+        description="Remove static bboxes automatically from YOLO labels or real MATRIX JSON annotations"
+    )
+    parser.add_argument("--mode", choices=["yolo", "real-json"], default="real-json")
+    parser.add_argument("--variance-threshold", type=float, default=80)
+    parser.add_argument("--start-drone", type=int, default=1)
+    parser.add_argument("--end-drone", type=int, default=8)
 
-    print()
-    print("=" * 70)
-    print("Automatic Static BBox Remover")
-    print("=" * 70)
-    print()
-    print("⚠️  WARNING: This will automatically process ALL frames")
-    print("   Make sure you've tested with the interactive script first!")
-    print()
+    # YOLO mode options
+    parser.add_argument("--use-threads", action="store_true")
 
-    # Get parameters
-    if len(sys.argv) >= 2:
-        variance_threshold = int(sys.argv[1])
-        start_drone = int(sys.argv[2]) if len(sys.argv) >= 3 else 1
-        end_drone = int(sys.argv[3]) if len(sys.argv) >= 4 else 8
-        use_threads = sys.argv[4].lower() != "false" if len(sys.argv) >= 5 else True
-    else:
-        variance_threshold = int(input("Variance Threshold (default 80): ") or "80")
-        start_drone = int(input("Start Drone (1-8, default 1): ") or "1")
-        end_drone = int(input("End Drone (1-8, default 8): ") or "8")
-        use_threads_input = (
-            input("Use multi-threading? (y/n, default y): ").strip().lower()
+    # Real JSON mode options
+    parser.add_argument("--start-frame", type=int, default=0)
+    parser.add_argument("--num-frames", type=int, default=200)
+    parser.add_argument("--real-dataset-root", type=str, default="")
+    parser.add_argument("--output-annotations-dir", type=str, default="")
+    parser.add_argument("--drone-ids", type=str, default="",
+                        help="Comma-separated drone IDs to process, e.g. 3,4,6,7 (overrides --start-drone/--end-drone)")
+
+    args = parser.parse_args()
+
+    if args.mode == "yolo":
+        batch_process_automatic(
+            variance_threshold=args.variance_threshold,
+            start_drone=args.start_drone,
+            end_drone=args.end_drone,
+            use_threads=args.use_threads,
         )
-        use_threads = use_threads_input != "n"
-
-    print()
-    print(f"Configuration:")
-    print(f"  Variance Threshold: {variance_threshold}")
-    print(f"  Drones: {start_drone}-{end_drone}")
-    print(f"  Multi-threading: {use_threads}")
-    print()
-
-    confirm = input("Continue? (yes/no): ").strip().lower()
-
-    if confirm == "yes":
-        print()
-        batch_process_automatic(variance_threshold, start_drone, end_drone, use_threads)
     else:
-        print("\nCancelled - no files were modified.")
+        real_root = Path(args.real_dataset_root) if args.real_dataset_root else None
+        out_dir = Path(args.output_annotations_dir) if args.output_annotations_dir else None
+        drone_ids_override = [int(x) for x in args.drone_ids.split(",") if x.strip()] if args.drone_ids else None
+        batch_process_real_matrix(
+            variance_threshold=args.variance_threshold,
+            start_drone=args.start_drone,
+            end_drone=args.end_drone,
+            drone_ids_override=drone_ids_override,
+            start_frame=args.start_frame,
+            num_frames=args.num_frames,
+            real_dataset_root=real_root,
+            output_annotations_dir=out_dir,
+        )

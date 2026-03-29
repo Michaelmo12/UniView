@@ -9,16 +9,20 @@ class NetworkConfig:
     base_port: int = 15000  # Drone 1 on port 15000, drone 2 on 15001, etc.
     host: str = "127.0.0.1"
     recv_timeout: float = 10.0  # Socket receive timeout (seconds)
-    reconnect_delay: float = 5.0  # Delay before reconnecting after disconnect
+    reconnect_delay: float = 1.0  # Delay before reconnecting after disconnect
 
 
 @dataclass
 class IngestionConfig:
     """Ingestion stage configuration."""
 
-    num_drones: int = 4  # Expected number of drones
-    sync_timeout: float = 2.0  # Frame synchronization timeout (seconds)
+    drone_ids: list = None  # Drone IDs to connect to (e.g. [3,4,6,7])
+    sync_timeout: float = 1.0  # Frame synchronization timeout (seconds)
     max_buffer_size: int = 100  # Max frames buffered per synchronizer
+
+    def __post_init__(self):
+        if self.drone_ids is None:
+            self.drone_ids = [3, 4, 6, 7]
 
 
 @dataclass
@@ -53,9 +57,9 @@ class FusionConfig:
     """Cross-camera fusion stage configuration."""
 
     epipolar_threshold: float = (
-        5.0  # Max point-to-epiline distance (pixels) for geometric match
+        2.0  # Max point-to-epiline distance (pixels) for geometric match
     )
-    appearance_threshold: float = 0.5  # Min WCH cosine similarity for appearance match
+    appearance_threshold: float = 0.55  # Min WCH cosine similarity for appearance match
     min_cameras: int = 2  # Minimum cameras that must observe a person for valid match
 
 
@@ -64,13 +68,16 @@ class ReconstructionConfig:
     """3D reconstruction stage configuration."""
 
     max_reprojection_error: float = (
-        10.0  # Max avg reprojection error (pixels) to accept triangulation
+        3  # Max avg reprojection error (pixels) to accept triangulation
     )
     dbscan_eps: float = (
-        2.0  # DBSCAN epsilon (meters) -- max distance between points in cluster
+        0.5  # DBSCAN epsilon (meters) -- max distance between points in cluster
     )
     dbscan_min_samples: int = (
         2  # DBSCAN min_samples -- minimum 2 points to form cluster (isolated points become noise)
+    )
+    prune_bad_ratio_threshold: float = (
+        0.60  # Robust triangulation: drop a view if it is bad in >= 60% of pairwise tests
     )
 
 
@@ -79,13 +86,13 @@ class TrackingConfig:
     """Temporal tracking stage configuration."""
 
     n_init: int = (
-        3  # Consecutive hits to confirm (conservative, reduces false positives)
+        2  # Consecutive hits to confirm (conservative, reduces false positives)
     )
     max_age: int = (
-        10  # Max frames coasting before deletion (generous, handles brief occlusions at 2 FPS)
+        2  # Max frames coasting before deletion (generous, handles brief occlusions at 2 FPS)
     )
     max_distance: float = (
-        2.0  # Max association distance in meters (matches DBSCAN eps, allows ~1.5m/frame movement)
+        3.5  # Max association distance in meters (matches DBSCAN eps, allows ~1.5m/frame movement)
     )
     process_noise: float = 0.1  # Kalman Q diagonal scale (low = assumes smooth motion)
     measurement_noise: float = (
@@ -97,8 +104,22 @@ class TrackingConfig:
 class OutputConfig:
     """HTTP POST output configuration."""
 
-    gateway_url: str = "http://localhost:8080"  # Base URL for gateway POST /api/internal/push
-    jpeg_quality: int = 70                      # JPEG compression quality (0-100)
+    gateway_url: str = (
+        "http://localhost:8080"  # Base URL for gateway POST /api/internal/push
+    )
+    jpeg_quality: int = 70  # JPEG compression quality (0-100)
+
+
+@dataclass
+class GeometryConfig:
+    """Geometry coordinate-system configuration.
+
+    Controls how 2D image coordinates are mapped before camera-geometry stages
+    (epipolar, triangulation, reprojection).
+    """
+
+    flip_x_for_geometry: bool = True  # Apply x' = W - x before geometric computations
+    image_width_override: int = 0  # 0 means use runtime frame width
 
 
 class Settings:
@@ -140,6 +161,7 @@ class Settings:
         self.reconstruction = ReconstructionConfig()
         self.tracking = TrackingConfig()
         self.output = OutputConfig()
+        self.geometry = GeometryConfig()
 
         Settings._initialized = True
 

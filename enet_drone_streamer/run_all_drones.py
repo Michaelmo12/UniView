@@ -63,6 +63,13 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Stop each drone when its dataset frames are exhausted.",
     )
+    parser.add_argument(
+        "--drones",
+        type=str,
+        default="",
+        metavar="IDS",
+        help="Comma-separated drone IDs to launch, e.g. 3,4,6,7 (default: all 1-8).",
+    )
     return parser.parse_args()
 
 
@@ -80,11 +87,17 @@ def main() -> None:
     script_dir = Path(__file__).parent.resolve()
     main_py = script_dir / "main.py"
 
+    drone_ids = (
+        sorted(int(x) for x in args.drones.split(",") if x.strip())
+        if args.drones
+        else list(range(1, NUM_DRONES + 1))
+    )
+
     processes: list[subprocess.Popen] = []
 
-    logger.info("Launching %d ENet drone streamers...", NUM_DRONES)
+    logger.info("Launching %d ENet drone streamers...", len(drone_ids))
 
-    for drone_id in range(1, NUM_DRONES + 1):
+    for drone_id in drone_ids:
         port = BASE_PORT + (drone_id - 1)
 
         cmd = [
@@ -102,25 +115,24 @@ def main() -> None:
         env = os.environ.copy()
         env["PYTHONPATH"] = str(script_dir.parent)
         proc = subprocess.Popen(cmd, env=env)
-        processes.append(proc)
+        processes.append((drone_id, proc))
         print(f"Launched drone {drone_id} on port {port}  (PID {proc.pid})")
 
     # Synchronized start: wait 1 second after all processes are spawned so all
     # 8 drones initialize at roughly the same time before any begin streaming.
     # Mirrors the threading.Event barrier in mock_drone_streamer/server.py.
     print(f"\n{'='*60}")
-    print(f"All {NUM_DRONES} drones launched. Waiting 1s for synchronized start...")
+    print(f"All {len(drone_ids)} drones launched. Waiting 1s for synchronized start...")
     print(f"{'='*60}\n")
     time.sleep(1.0)
-    logger.info("All %d drones streaming. Press Ctrl+C to stop.", NUM_DRONES)
+    logger.info("All %d drones streaming. Press Ctrl+C to stop.", len(drone_ids))
 
     try:
         # Wait for any process to exit (unexpected)
         while True:
-            for i, proc in enumerate(processes):
+            for drone_id, proc in processes:
                 ret = proc.poll()
                 if ret is not None:
-                    drone_id = i + 1
                     logger.warning(
                         "Drone %d process exited with code %d", drone_id, ret
                     )
@@ -130,18 +142,16 @@ def main() -> None:
         logger.info("Received Ctrl+C — shutting down all drone processes...")
 
     finally:
-        for i, proc in enumerate(processes):
+        for drone_id, proc in processes:
             if proc.poll() is None:
-                drone_id = i + 1
                 logger.info("Terminating drone %d (PID %d)...", drone_id, proc.pid)
                 proc.terminate()
 
         # Wait for all to finish
-        for i, proc in enumerate(processes):
+        for drone_id, proc in processes:
             try:
                 proc.wait(timeout=5.0)
             except subprocess.TimeoutExpired:
-                drone_id = i + 1
                 logger.warning(
                     "Drone %d did not terminate cleanly, killing...", drone_id
                 )
