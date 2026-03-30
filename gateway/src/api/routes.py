@@ -44,6 +44,7 @@ class StreamPayload(BaseModel):
     total_reid_matches: int
     pipeline_latency_ms: float
     avg_confidence: float
+    stage_timings_ms: dict = {}
 
 
 # ---------------------------------------------------------------------------
