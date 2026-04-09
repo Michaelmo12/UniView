@@ -21,10 +21,18 @@ logger = logging.getLogger(__name__)
 
 
 class BatchDetector:
-    def __init__(self):
+    def __init__(self, batch_mode: bool = False):
         self.detector = YOLODetector()
+        self.batch_mode = batch_mode
 
-        logger.info("Batch detector initialized (device=%s)", self.detector.device)
+        if batch_mode:
+            self.detector.warmup_batch()
+
+        logger.info(
+            "Batch detector initialized (device=%s, mode=%s)",
+            self.detector.device,
+            "BATCH" if batch_mode else "sequential",
+        )
 
     def process(self, sync_set: SynchronizedFrameSet) -> Dict[int, DetectionSet]:
         """
@@ -64,116 +72,28 @@ class BatchDetector:
 
         return results
 
+    def process_batch(self, sync_set: SynchronizedFrameSet) -> Dict[int, DetectionSet]:
+        """Process all frames in a synchronized set using one batched predict call.
 
-if __name__ == "__main__":
-    import queue
-    import time
+        Requires BatchDetector(batch_mode=True) for optimal OpenVINO performance.
 
-    from config import settings
-    from ingestion.tcp_receiver import TCPReceiver
-    from ingestion.synchronizer import FrameSynchronizer
+        Args:
+            sync_set: SynchronizedFrameSet containing frames from multiple drones.
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
-    )
+        Returns:
+            Dictionary mapping {drone_id: DetectionSet}, same shape as process().
+        """
+        drone_ids = sorted(sync_set.frames.keys())
+        frames    = [sync_set.frames[d].frame for d in drone_ids]
 
-    logger.info("Testing Batch Detector with REAL Data")
-    logger.info("=" * 60)
-    logger.info("")
-    logger.info("Requirements:")
-    logger.info("  1. mock_drone_streamer running (python server.py)")
-    logger.info("  2. YOLO weights at weights/best.pt")
-    logger.info("")
-    logger.info("=" * 60)
+        results = self.detector.detect_batch(frames, drone_ids, sync_set.frame_num)
 
-    # Queues
-    receiver_queue = queue.Queue()
-    sync_queue = queue.Queue()
+        total_detections = sum(ds.num_detections for ds in results.values())
+        logger.info(
+            "Frame %d (batch): %d total detections across %d drones",
+            sync_set.frame_num, total_detections, len(drone_ids),
+        )
 
-    # Create receivers for all drones from config
-    receivers = {}
-    for drone_id in range(1, settings.ingestion.num_drones + 1):
-        receiver = TCPReceiver(drone_id=drone_id, output_queue=receiver_queue)
-        receivers[drone_id] = receiver
+        return results
 
-    # Create synchronizer
-    sync = FrameSynchronizer(input_queue=receiver_queue, output_queue=sync_queue)
 
-    # Create batch detector
-    batch_detector = BatchDetector()
-
-    logger.info("")
-    logger.info("Using config:")
-    logger.info("  Weights: %s", batch_detector.detector.weights_path)
-    logger.info("  Device: %s", batch_detector.detector.device)
-    logger.info("  Confidence: %.2f", batch_detector.detector.conf_threshold)
-    logger.info("  Num drones: %d", settings.ingestion.num_drones)
-    logger.info("")
-
-    try:
-        # Start pipeline
-        logger.info("Starting pipeline...")
-        sync.start()
-
-        for drone_id, receiver in receivers.items():
-            receiver.start()
-
-        time.sleep(1.0)  # Wait for connections
-
-        logger.info("")
-        logger.info("Processing frames with detection...")
-        logger.info("-" * 60)
-
-        # Process 5 synchronized sets
-        for i in range(5):
-            try:
-                sync_set = sync_queue.get(timeout=5.0)
-
-                logger.info(
-                    "\nSet %d: frame_num=%d, drones=%s",
-                    i + 1,
-                    sync_set.frame_num,
-                    sync_set.drone_ids,
-                )
-
-                all_detections = batch_detector.process(sync_set)
-
-                for drone_id, detection_set in all_detections.items():
-                    logger.info(
-                        "  Drone %d: %d detections (%.3fs inference)",
-                        drone_id,
-                        detection_set.num_detections,
-                        detection_set.inference_time,
-                    )
-
-                    for det in detection_set.detections[:3]:
-                        cx, cy = det.bbox.center
-                        logger.info(
-                            "    - Person @ (%.0f, %.0f), conf=%.2f, size=%.0fx%.0f",
-                            cx,
-                            cy,
-                            det.confidence,
-                            det.bbox.width,
-                            det.bbox.height,
-                        )
-
-            except queue.Empty:
-                logger.warning("Timeout waiting for synchronized set")
-                break
-
-        logger.info("")
-        logger.info("-" * 60)
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("Test complete!")
-
-    except KeyboardInterrupt:
-        logger.info("\nInterrupted by user")
-
-    finally:
-        logger.info("\nCleaning up...")
-        for receiver in receivers.values():
-            receiver.stop()
-        sync.stop()
-        logger.info("Done")

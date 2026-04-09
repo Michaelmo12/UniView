@@ -8,13 +8,16 @@ Runs as a background asyncio task started in main.py lifespan.
 Posts one StreamPayload per drone per frame to the gateway via HTTP POST.
 
 Threading model:
-- TCP receivers + frame synchronizer run in background threads (queue-based)
-- This coroutine polls the sync queue with asyncio.sleep to yield control between frames
-- CPU-bound stages (YOLO, WCH, etc.) run synchronously — at 2 FPS there is sufficient slack
+- ENet receiver runs in a separate OS process (ReceiverProcess) so it does not
+  compete with OpenVINO's internal OpenMP thread pool for CPU cores.
+- SynchronizedFrameSets cross the process boundary via multiprocessing.Queue (pickle).
+- This coroutine polls the sync queue with asyncio.sleep to yield control between frames.
+- CPU-bound stages (YOLO, WCH, etc.) run synchronously — at 2 FPS there is sufficient slack.
 """
 
 import asyncio
 import logging
+import multiprocessing
 import queue
 import time
 
@@ -24,8 +27,7 @@ from src.detection.batch_detector import BatchDetector
 from src.features.projection_matrix import ProjectionMatrixCalculator
 from src.features.wch_extractor import WCHExtractor
 from src.fusion.cross_camera_matcher import CrossCameraMatcher
-from src.ingestion.synchronizer import FrameSynchronizer
-from src.ingestion.enet_receiver import create_enet_receivers, start_all_enet_receivers, stop_all_enet_receivers
+from src.ingestion.receiver_process import create_receiver_process
 from src.pipeline.output_formatter import build_payloads
 from src.reconstruction.scene_reconstructor import SceneReconstructor
 from src.tracking.tracker import PersonTracker
@@ -45,28 +47,25 @@ async def run_pipeline_loop() -> None:
 
     try:
         # --- Initialize all stages ---
-        batch_detector = BatchDetector()
+        batch_detector = BatchDetector(batch_mode=True)
         wch_extractor = WCHExtractor(settings.features)
         projection_calc = ProjectionMatrixCalculator()
         cross_camera_matcher = CrossCameraMatcher(settings.fusion)
         scene_reconstructor = SceneReconstructor(settings.reconstruction)
         person_tracker = PersonTracker()
 
-        # --- Initialize ingestion (threading-based) ---
-        receiver_queue: queue.Queue = queue.Queue()
-        sync_queue: queue.Queue = queue.Queue()
+        # --- Initialize ingestion (separate process) ---
+        # multiprocessing.Queue crosses the process boundary via pickle.
+        # The receiver process has its own OS scheduler slot so it does not
+        # compete with OpenVINO's thread pool.
+        sync_queue: multiprocessing.Queue = multiprocessing.Queue(maxsize=2)
 
         drone_ids = settings.ingestion.drone_ids
-        receivers = create_enet_receivers(drone_ids, output_queue=receiver_queue)
-
-        synchronizer = FrameSynchronizer(
-            input_queue=receiver_queue,
+        receiver_process, receivers = create_receiver_process(
+            drone_ids,
             output_queue=sync_queue,
         )
-
-        # Start ingestion threads
-        synchronizer.start()
-        start_all_enet_receivers(receivers)
+        receiver_process.start()
     except Exception as exc:
         logger.error("Pipeline initialization failed: %s", exc, exc_info=True)
         raise
@@ -103,7 +102,7 @@ async def run_pipeline_loop() -> None:
                 t0 = time.monotonic()
 
                 # Stage 1: Detection
-                detection_sets = batch_detector.process(sync_set)
+                detection_sets = batch_detector.process_batch(sync_set)
                 t1 = time.monotonic()
 
                 # Stage 2: Feature extraction + projection matrices
@@ -198,7 +197,6 @@ async def run_pipeline_loop() -> None:
 
     except asyncio.CancelledError:
         logger.info("Pipeline loop cancelled. Shutting down ingestion...")
-        stop_all_enet_receivers(receivers)
-        synchronizer.stop()
+        receiver_process.stop(timeout=15.0)
         logger.info("Pipeline shutdown complete.")
         raise

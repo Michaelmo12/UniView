@@ -11,14 +11,14 @@ when the `enet` (pyenet) native library is not installed.  DatasetLoader and
 PacketBuilder have no such dependency and always import cleanly.
 """
 
-from enet_drone_streamer.src.dataset_loader import DatasetLoader
-from enet_drone_streamer.src.packet_builder import PacketBuilder
+from mock_drone_streamer.src.dataset_loader import DatasetLoader
+from mock_drone_streamer.src.packet_builder import PacketBuilder
 
 __all__ = ["DatasetLoader", "PacketBuilder", "ENetStreamer"]
 
 
 def __getattr__(name: str):
     if name == "ENetStreamer":
-        from enet_drone_streamer.src.streamer import ENetStreamer  # noqa: PLC0415
+        from mock_drone_streamer.src.streamer import ENetStreamer  # noqa: PLC0415
         return ENetStreamer
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

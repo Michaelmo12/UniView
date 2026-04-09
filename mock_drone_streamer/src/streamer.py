@@ -20,9 +20,9 @@ import time
 
 import enet  # pyenet
 
-from enet_drone_streamer.config.config import StreamerConfig
-from enet_drone_streamer.src.dataset_loader import DatasetLoader
-from enet_drone_streamer.src.packet_builder import PacketBuilder
+from mock_drone_streamer.config.config import StreamerConfig
+from mock_drone_streamer.src.dataset_loader import DatasetLoader
+from mock_drone_streamer.src.packet_builder import PacketBuilder
 
 logger = logging.getLogger(__name__)
 
