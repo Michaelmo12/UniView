@@ -203,6 +203,12 @@ function DroneCell({ id, payload, sseStatus }: DroneCellProps) {
         <span>{resolution ?? "--×--"}</span>
         <span>CH-{id.padStart(2, "0")}</span>
         <span>{fps !== null ? `${fps}FPS` : "--FPS"}</span>
+        <span style={{ color: "rgba(250,204,21,0.7)" }}>DET:{payload ? payload.tracks.length : "--"}</span>
+        <span style={{ color: "rgba(250,204,21,0.7)" }}>
+          IDS:{payload
+            ? [...new Set(payload.tracks.filter(t => t.global_id !== -1).map(t => t.global_id))].length
+            : "--"}
+        </span>
       </div>
     </div>
   );

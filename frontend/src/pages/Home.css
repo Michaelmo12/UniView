@@ -223,10 +223,12 @@
   align-items: center;
   padding: 6px 9px;
   z-index: 6;
-  background: linear-gradient(0deg, rgba(10,10,10,0.45) 0%, transparent 100%);
+  background: linear-gradient(0deg, rgba(10,10,10,0.65) 0%, transparent 100%);
   font-size: 9px;
   letter-spacing: 1px;
   color: rgba(255, 255, 255, 0.1);
+  flex-wrap: nowrap;
+  gap: 6px;
 }
 
 .drone-cell--live .drone-cell__footer {
