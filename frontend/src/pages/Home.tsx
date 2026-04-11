@@ -1,26 +1,42 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSSEStream } from "../hooks/useTrackingStream";
+import type { SSEStatus } from "../hooks/useTrackingStream";
 import type { StreamPayload, TrackEntry } from "../types/tracking";
 import "./Home.css";
 
-// The 4 drone IDs we expect — matches num_drones=4 in algorithm config.
+// The 4 drone IDs we expect — matches drone_ids=[3,4,6,7] in algorithm config.
 // Each ID maps to one cell in the 2×2 grid.
-const DRONE_IDS = ["1", "2", "3", "4"];
+const DRONE_IDS = ["3", "4", "6", "7"];
 
 interface DroneCellProps {
   id: string;
-  payload: StreamPayload | null; // null = drone not yet seen in SSE stream (offline)
+  payload: StreamPayload | null;
+  sseStatus: SSEStatus;
 }
 
-// DroneCell renders one camera tile.
-// When a payload arrives for this drone it:
-//   1. Decodes the base64 JPEG and draws it on a <canvas>
-//   2. Overlays bounding boxes + global track IDs for every confirmed track
-// When no payload is available it shows a "NO SIGNAL" crosshair instead.
-function DroneCell({ id, payload }: DroneCellProps) {
-  // isLive drives the CSS variant (corner bracket color, footer color, REC badge vs NO SIGNAL)
-  const isLive = payload !== null;
+function DroneCell({ id, payload, sseStatus }: DroneCellProps) {
+  // isStale: payload was received before but no update for >3s → drone went silent
+  const lastSeenRef = useRef<number | null>(null);
+  const [isStale, setIsStale] = useState(false);
+
+  useEffect(() => {
+    if (payload !== null) {
+      lastSeenRef.current = Date.now();
+      setIsStale(false);
+    }
+  }, [payload]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (lastSeenRef.current !== null && Date.now() - lastSeenRef.current > 3000) {
+        setIsStale(true);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const isLive = payload !== null && !isStale;
 
   // canvasRef — direct handle to the <canvas> DOM element for 2D drawing
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -78,22 +94,62 @@ function DroneCell({ id, payload }: DroneCellProps) {
       const scaleX = canvas.width / img.naturalWidth;
       const scaleY = canvas.height / img.naturalHeight;
 
-      // Draw one green bounding box + "ID N" label per confirmed track
-      ctx.strokeStyle = "#00ff88";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.font = "bold 11px monospace";
-      ctx.fillStyle = "#00ff88";
+      // Per-ID color palette — hue spread across the visible spectrum
+      const TRACK_COLORS = [
+        "#0ea5e9", // sky blue
+        "#ec4899", // pink
+        "#f97316", // orange
+        "#8b5cf6", // violet
+        "#10b981", // emerald
+        "#eab308", // yellow
+        "#ef4444", // red
+        "#06b6d4", // cyan
+        "#a21caf", // purple
+        "#16a34a", // green
+      ];
+      const colorFor = (id: number) => TRACK_COLORS[id % TRACK_COLORS.length];
 
       payload.tracks.forEach((track: TrackEntry) => {
-        // Scale box coords from algorithm image space → canvas pixel space
+        const isSingleView = track.global_id === -1;
+        const color = isSingleView ? "#f8fafc" : colorFor(track.global_id);
         const rx = track.x * scaleX;
         const ry = track.y * scaleY;
         const rw = track.width * scaleX;
         const rh = track.height * scaleY;
-        ctx.strokeRect(rx, ry, rw, rh);
-        // Label sits just above the top-left corner of the box
-        ctx.fillText(`ID ${track.global_id}`, rx + 2, ry - 4);
+
+        if (isSingleView) {
+          // Dashed bright box — unmatched single-camera detection
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = color;
+          ctx.setLineDash([6, 4]);
+          ctx.strokeRect(rx, ry, rw, rh);
+          ctx.setLineDash([]);
+        } else {
+          ctx.lineWidth = 1;
+          // Solid colored box for confirmed tracked person
+          ctx.strokeStyle = color;
+          ctx.setLineDash([]);
+          ctx.strokeRect(rx, ry, rw, rh);
+
+          // Small label pill above top-left corner
+          const label = `${track.global_id}`;
+          ctx.font = "500 10px monospace";
+          const textW = ctx.measureText(label).width;
+          const padX = 3;
+          const padY = 2;
+          const labelH = 13;
+          const lx = rx;
+          const ly = ry - labelH - 1;
+
+          ctx.fillStyle = color + "33";
+          ctx.fillRect(lx, ly, textW + padX * 2, labelH);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(lx, ly, textW + padX * 2, labelH);
+          ctx.fillStyle = color;
+          ctx.font = "500 10px monospace";
+          ctx.fillText(label, lx + padX, ly + labelH - padY - 1);
+        }
       });
     };
     // Trigger decode — setting src starts the async load
@@ -117,7 +173,7 @@ function DroneCell({ id, payload }: DroneCellProps) {
       </div>
 
       <div className="drone-cell__body">
-        {isLive ? (
+        {isLive || isStale ? (
           <canvas
             ref={canvasRef}
             width={640}
@@ -127,6 +183,18 @@ function DroneCell({ id, payload }: DroneCellProps) {
         ) : (
           <div className="drone-cell__nosignal">
             <div className="drone-cell__crosshair" />
+          </div>
+        )}
+
+        {sseStatus === "reconnecting" && (
+          <div className="drone-cell__overlay drone-cell__overlay--reconnecting">
+            ⟳ Reconnecting...
+          </div>
+        )}
+
+        {isStale && sseStatus !== "reconnecting" && (
+          <div className="drone-cell__overlay drone-cell__overlay--nosignal">
+            NO SIGNAL
           </div>
         )}
       </div>
@@ -148,7 +216,7 @@ function Home() {
   const { token } = useAuth();
 
   // frames: Map<droneId, StreamPayload> — one entry per drone, updates on every SSE event
-  const frames = useSSEStream(token);
+  const { frames, status } = useSSEStream(token);
 
   return (
     <div className="uniview-dashboard">
@@ -159,8 +227,8 @@ function Home() {
             <DroneCell
               key={id}
               id={id}
-              // Look up this drone's latest payload; null if not yet received
               payload={frames.get(id) ?? null}
+              sseStatus={status}
             />
           ))}
         </div>

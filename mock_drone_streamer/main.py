@@ -15,8 +15,8 @@ import logging
 import sys
 from pathlib import Path
 
-from enet_drone_streamer.config.config import StreamerConfig
-from enet_drone_streamer.src.streamer import ENetStreamer
+from mock_drone_streamer.config.config import StreamerConfig
+from mock_drone_streamer.src.streamer import ENetStreamer
 
 DEFAULT_DATASET = str(Path(__file__).parent.parent / "MATRIX_30x30" / "MATRIX_30x30")
 

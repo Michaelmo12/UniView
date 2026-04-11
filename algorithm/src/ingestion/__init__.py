@@ -4,9 +4,9 @@ Ingestion Stage
 Handles receiving, decoding, and synchronizing frames from multiple drones.
 
 Components:
-- models: Data structures (DroneFrame, CameraCalibration, SynchronizedFrameSet)
-- enet_receiver: ENet reliable-UDP connections and frame reception
-- synchronizer: Frame synchronization across drones
+- models:           Data structures (DroneFrame, CameraCalibration, SynchronizedFrameSet)
+- synced_receiver:  Single-thread ENet receiver + frame synchronizer (runs in child process)
+- receiver_process: Manages the child process, exposes ConnectionProxy to parent
 """
 
 from src.ingestion.models import (
@@ -15,15 +15,16 @@ from src.ingestion.models import (
     SynchronizedFrameSet,
 )
 
-from src.ingestion.enet_receiver import (
-    ENetReceiver,
-    create_enet_receivers,
-    start_all_enet_receivers,
-    stop_all_enet_receivers,
+from src.ingestion.synced_receiver import (
+    DroneState,
+    SyncedENetReceiver,
+    create_synced_receiver,
 )
 
-from src.ingestion.synchronizer import (
-    FrameSynchronizer,
+from src.ingestion.receiver_process import (
+    ConnectionProxy,
+    ReceiverProcess,
+    create_receiver_process,
 )
 
 __all__ = [
@@ -31,11 +32,12 @@ __all__ = [
     "CameraCalibration",
     "DroneFrame",
     "SynchronizedFrameSet",
-    # ENet Receiver
-    "ENetReceiver",
-    "create_enet_receivers",
-    "start_all_enet_receivers",
-    "stop_all_enet_receivers",
-    # Synchronizer
-    "FrameSynchronizer",
+    # Synced receiver (runs inside child process)
+    "DroneState",
+    "SyncedENetReceiver",
+    "create_synced_receiver",
+    # Process wrapper (used by main pipeline)
+    "ConnectionProxy",
+    "ReceiverProcess",
+    "create_receiver_process",
 ]

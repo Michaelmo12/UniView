@@ -133,7 +133,7 @@
   align-items: center;
   padding: 7px 9px;
   z-index: 6;
-  background: linear-gradient(180deg, rgba(10,10,10,0.75) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(10,10,10,0.45) 0%, transparent 100%);
 }
 
 .drone-cell__id {
@@ -223,7 +223,7 @@
   align-items: center;
   padding: 6px 9px;
   z-index: 6;
-  background: linear-gradient(0deg, rgba(10,10,10,0.75) 0%, transparent 100%);
+  background: linear-gradient(0deg, rgba(10,10,10,0.45) 0%, transparent 100%);
   font-size: 9px;
   letter-spacing: 1px;
   color: rgba(255, 255, 255, 0.1);
@@ -231,4 +231,31 @@
 
 .drone-cell--live .drone-cell__footer {
   color: rgba(0, 255, 136, 0.4);
+}
+
+/* ─── Status Overlays ────────────────────────────────────────── */
+.drone-cell__overlay {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+.drone-cell__overlay--reconnecting {
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.6);
+  background: rgba(249, 115, 22, 0.1);
+}
+
+.drone-cell__overlay--nosignal {
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.1);
 }

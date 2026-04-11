@@ -1,8 +1,8 @@
 import logging
 import numpy as np
-from sklearn.cluster import DBSCAN
 
 from src.config.settings import ReconstructionConfig
+from src.reconstruction.dbscan import WhiteBoxDBSCAN
 from src.reconstruction.models import Point3D, Person3D
 
 logger = logging.getLogger(__name__)
@@ -61,17 +61,18 @@ class PersonClusterer:
                 position_rows.append(point.position)
             positions = np.array(position_rows)  # (N, 3)
 
-            # Run DBSCAN
-            clusterer = DBSCAN(
-                eps=self.config.dbscan_eps,  # two points are "neighbors" if they're within 2 meters of each other in 3D world space
-                min_samples=self.config.dbscan_min_samples,  # a cluster needs at least 2 points to form
-                metric='euclidean'  # standard distance in 3D space d = sqrt((x2-x1)² + (y2-y1)² + (z2-z1)²)
+            # Run DBSCAN (whitebox implementation — see src/reconstruction/dbscan.py)
+            # eps:         two points are "neighbors" if they're within eps meters of each other in 3D world space
+            # min_samples: a cluster needs at least this many points to form (core-point threshold)
+            clusterer = WhiteBoxDBSCAN(
+                eps=self.config.dbscan_eps,
+                min_samples=self.config.dbscan_min_samples,
             )
             '''runs the full algorithm in one call and returns a label array the same length as positions:
 
             positions:  [ [1.0, 2.0, 0.5],  [1.1, 2.1, 0.6],  [5.0, 6.0, 1.0] ]
-            labels:     [       0,                 0,                 -1         ]  
-            
+            labels:     [       0,                 0,                 -1         ]
+
             -1 means noise (point3), 0 means cluster 0 (point1 and point2)
             '''
             labels = clusterer.fit_predict(positions)
@@ -149,46 +150,3 @@ class PersonClusterer:
 
         return persons
 
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    logger.info("Testing PersonClusterer")
-    logger.info("=" * 60)
-
-    from src.config.settings import settings
-
-    clusterer = PersonClusterer(settings.reconstruction)
-    logger.info("PersonClusterer created with config:")
-    logger.info("  dbscan_eps: %.1f", settings.reconstruction.dbscan_eps)
-    logger.info("  dbscan_min_samples: %d", settings.reconstruction.dbscan_min_samples)
-
-    # Test with mock data
-    logger.info("\nTest clustering with mock triangulated points:")
-
-    # Create two clusters of points
-    point1 = Point3D(
-        position=np.array([1.0, 2.0, 0.5]),
-        reprojection_error=2.0,
-        source_detections=[(1, 0), (2, 0)]
-    )
-    point2 = Point3D(
-        position=np.array([1.1, 2.1, 0.6]),  # Close to point1
-        reprojection_error=2.5,
-        source_detections=[(3, 1), (4, 1)]
-    )
-    point3 = Point3D(
-        position=np.array([5.0, 6.0, 1.0]),  # Far from others
-        reprojection_error=1.5,
-        source_detections=[(5, 2), (6, 2)]
-    )
-
-    unmatched = [(7, 0), (8, 1)]  # Two single-view detections
-
-    persons = clusterer.cluster_persons([point1, point2, point3], unmatched)
-
-    logger.info("Result: %d persons", len(persons))
-    for person in persons:
-        logger.info("  %s", person)
-
-    logger.info("\n" + "=" * 60)
-    logger.info("PersonClusterer ready for use")

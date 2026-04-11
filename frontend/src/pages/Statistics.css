@@ -262,3 +262,77 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* ─── Stage Timings ───────────────────────────────────────────── */
+.stats-timings {
+  background: rgba(13, 13, 13, 0.95);
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  border-radius: 4px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-timing-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 72px 40px;
+  align-items: center;
+  gap: 12px;
+}
+
+.stats-timing-row--total {
+  grid-template-columns: 130px 1fr 72px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.stats-timing-label {
+  font-family: var(--font-condensed, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+.stats-timing-row--total .stats-timing-label {
+  color: rgba(255,255,255,0.75);
+  font-weight: 600;
+}
+
+.stats-timing-bar-wrap {
+  height: 3px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.stats-timing-bar {
+  height: 100%;
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.stats-timing-row--total .stats-timing-bar {
+  background: rgba(0, 255, 136, 0.9);
+}
+
+.stats-timing-value {
+  font-family: var(--font-condensed, 'IBM Plex Mono', monospace);
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  text-align: right;
+}
+
+.stats-timing-row--total .stats-timing-value {
+  color: #00ff88;
+  font-weight: 600;
+}
+
+.stats-timing-pct {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  text-align: right;
+}

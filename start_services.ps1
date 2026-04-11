@@ -37,8 +37,8 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$Root\algorit
 Start-Sleep -Seconds 2
 
 # 4. ENet Drone Streamer
-Write-Host "Starting ENet Drone Streamer (drones: $Drones)..." -ForegroundColor Yellow
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$Root\enet_drone_streamer'; python run_all_drones.py --dataset '$DatasetPath' --drones $Drones"
+Write-Host "Starting Mock Drone Streamer (drones: $Drones)..." -ForegroundColor Yellow
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$Root\mock_drone_streamer'; python run_all_drones.py --dataset '$DatasetPath' --drones $Drones"
 Start-Sleep -Seconds 1
 
 # 5. Frontend (port 5173)

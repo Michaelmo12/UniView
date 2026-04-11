@@ -17,6 +17,15 @@ export interface TrackEntry {
   frames_tracked: number;
 }
 
+export interface StageTimings {
+  detection: number;
+  features: number;
+  fusion: number;
+  reconstruction: number;
+  tracking: number;
+  total: number;
+}
+
 export interface StreamPayload {
   timestamp: string;           // ISO-8601 UTC
   drone_id: string;            // e.g. "1"
@@ -26,4 +35,5 @@ export interface StreamPayload {
   total_reid_matches: number;
   pipeline_latency_ms: number;
   avg_confidence: number;
+  stage_timings_ms: StageTimings;
 }

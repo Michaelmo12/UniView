@@ -121,24 +121,44 @@ class HistoryAggregator:
                     unique_global_ids.add(gid)
         active_tracks = len(unique_global_ids)
 
+        # avg_confidence across all payloads this minute
+        confidences = [p.get("avg_confidence", 0.0) for p in payloads if p.get("avg_confidence", 0.0) > 0]
+        avg_confidence = round(sum(confidences) / len(confidences), 3) if confidences else 0.0
+
         # avg_latency across all payloads this minute
         latencies = [p.get("pipeline_latency_ms", 0.0) for p in payloads]
         avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
 
         server_fps = round(1000.0 / avg_latency, 1) if avg_latency > 0 else 0.0
 
-        if avg_latency < 200:
+        if avg_latency < 1000:
             system_status = "Optimal"
-        elif avg_latency < 500:
+        elif avg_latency < 2000:
             system_status = "Warning"
         else:
             system_status = "Critical"
+
+        # avg per-stage timings from payloads that include them
+        stage_keys = ("detection", "features", "fusion", "reconstruction", "tracking", "total")
+        stage_samples: dict[str, list[float]] = {k: [] for k in stage_keys}
+        for p in payloads:
+            timings = p.get("stage_timings_ms", {})
+            for k in stage_keys:
+                if k in timings:
+                    stage_samples[k].append(timings[k])
+        avg_stage_timings = {
+            k: round(sum(v) / len(v), 1) if v else 0.0
+            for k, v in stage_samples.items()
+        }
 
         return {
             "active_drones": active_drones,
             "active_tracks": active_tracks,
             "server_fps": server_fps,
             "system_status": system_status,
+            "avg_pipeline_latency_ms": round(avg_latency, 1),
+            "avg_confidence": avg_confidence,
+            "stage_timings_ms": avg_stage_timings,
         }
 
 

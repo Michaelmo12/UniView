@@ -2,7 +2,7 @@
 Triangulator
 
 Converts matched 2D detections across cameras into 3D world positions using
-Direct Linear Transform (DLT) via cv2.triangulatePoints. Validates triangulation
+a whitebox Direct Linear Transform (DLT) via SVD. Validates triangulation
 quality via reprojection error.
 
 Key Class:
@@ -11,7 +11,6 @@ Key Class:
 
 import logging
 import numpy as np
-import cv2
 
 from src.config.settings import ReconstructionConfig
 from src.config.settings import settings
@@ -30,9 +29,8 @@ class Triangulator:
     """
     Triangulates matched 2D detections into 3D world positions.
 
-    Uses cv2.triangulatePoints (DLT algorithm) for 2-view or multi-view
-    triangulation. Validates results via reprojection error and rejects
-    poor triangulations.
+    Uses a whitebox DLT (SVD-based) for 2-view triangulation. Validates
+    results via reprojection error and rejects poor triangulations.
 
     Constructor takes ReconstructionConfig with max_reprojection_error threshold.
     """
@@ -45,105 +43,6 @@ class Triangulator:
             config: ReconstructionConfig with max_reprojection_error threshold
         """
         self.config = config
-
-    def triangulate_match_group(
-        self,
-        match_group: MatchGroup,
-        detection_sets: dict[int, DetectionSet],
-        sync_set: SynchronizedFrameSet,
-    ) -> list[Point3D]:
-        """
-        Triangulate a match group into raw pairwise Point3Ds.
-
-        Extracts 2D bbox centers and projection matrices for each detection in
-        the match group, then triangulates all C(N,2) pairs. Each pair that
-        passes reprojection error produces one Point3D. The median collapse is
-        intentionally removed — DBSCAN in PersonClusterer handles consolidation.
-
-        Args:
-            match_group: MatchGroup with detections list [(drone_id, local_id), ...]
-            detection_sets: Dict mapping drone_id to DetectionSet
-            sync_set: SynchronizedFrameSet with calibration data
-
-        Returns:
-            List of Point3D, one per valid pairwise triangulation (may be empty)
-        """
-        # Extract 2D points and projection matrices (parallel lists)
-        points_2d = []
-        projection_matrices = []
-        detection_ids = []  # keep (drone_id, local_id) aligned with points_2d
-
-        for drone_id, local_id in match_group.detections:
-            detection = detection_sets[drone_id].detections[local_id]
-            center = detection.bbox.center  # (cx, cy) tuple
-
-            if settings.geometry.flip_x_for_geometry:
-                frame_width = (
-                    settings.geometry.image_width_override
-                    if settings.geometry.image_width_override > 0
-                    else sync_set.frames[drone_id].frame.shape[1]
-                )
-                center = (float(frame_width) - float(center[0]), float(center[1]))
-
-            points_2d.append(center)
-            projection_matrices.append(
-                sync_set.frames[drone_id].calibration.projection_matrix
-            )
-            detection_ids.append((drone_id, local_id))
-
-        num_views = len(points_2d)
-
-        if num_views < 2:
-            logger.warning(
-                "Match group has < 2 views, cannot triangulate: %s",
-                match_group.detections,
-            )
-            return []
-
-        # Triangulate all C(N,2) pairs, keep those below reprojection threshold
-        result_points = []
-
-        for i in range(num_views):
-            for j in range(i + 1, num_views):
-                point_3d = self._triangulate_two_view_whitebox(
-                    points_2d[i],
-                    points_2d[j],
-                    projection_matrices[i],
-                    projection_matrices[j],
-                )
-
-                # Skip degenerate triangulations (W=0 produces nan/inf)
-                if not np.isfinite(point_3d).all():
-                    logger.debug(
-                        "Rejecting pair (%d,%d): degenerate triangulation (nan/inf)", i, j
-                    )
-                    continue
-
-                # Validate this pair against all views in the match group
-                error = self._compute_reprojection_error(
-                    point_3d, points_2d, projection_matrices
-                )
-
-                if not np.isfinite(error) or error > self.config.max_reprojection_error:
-                    logger.debug(
-                        "Rejecting pair (%d,%d): error=%.2fpx > threshold=%.2fpx",
-                        i,
-                        j,
-                        error,
-                        self.config.max_reprojection_error,
-                    )
-                    continue
-
-                result_points.append(
-                    Point3D(
-                        position=point_3d,
-                        reprojection_error=error,
-                        source_detections=[detection_ids[i], detection_ids[j]],
-                        match_group_id=match_group.group_id,
-                    )
-                )
-
-        return result_points
 
     def triangulate_match_group_robust(
         self,
@@ -197,10 +96,22 @@ class Triangulator:
 
         active = list(range(len(points_2d)))
 
+        # Pre-stack all projection matrices as a single (N, 3, 4) float64 array
+        # and observed 2D points as (N, 2) — built once, sliced per pruning round.
+        all_Ps = np.stack(
+            [projection_matrices[k].astype(np.float64) for k in range(len(points_2d))],
+            axis=0,
+        )  # (N, 3, 4)
+        all_pts = np.array(points_2d, dtype=np.float64)  # (N, 2)
+
         # Iterative pruning: drop the worst view while >= 3 views remain
         while len(active) >= 3:
             bad_counts = np.zeros(len(active), dtype=np.int32)
             valid_pairs = 0
+
+            # Slice active views once per pruning round
+            act_Ps  = all_Ps[active]   # (A, 3, 4)
+            act_pts = all_pts[active]  # (A, 2)
 
             for i in range(len(active)):
                 for j in range(i + 1, len(active)):
@@ -212,19 +123,15 @@ class Triangulator:
                     if not np.isfinite(X).all():
                         continue
 
-                    # Compute per-view reprojection errors for all active views
-                    X4 = np.append(X, 1.0)
-                    per_view = np.zeros(len(active), dtype=np.float64)
-                    for k_idx, k in enumerate(active):
-                        proj = projection_matrices[k].astype(np.float64) @ X4
-                        depth = float(proj[2])
-                        if abs(depth) < EPS_DENOM:
-                            per_view[k_idx] = np.inf
-                        else:
-                            per_view[k_idx] = float(np.hypot(
-                                proj[0] / depth - points_2d[k][0],
-                                proj[1] / depth - points_2d[k][1],
-                            ))
+                    # Vectorized per-view reprojection: (A, 3, 4) @ (4,) → (A, 3)
+                    X4 = np.append(X, 1.0)                      # (4,)
+                    proj = act_Ps @ X4                           # (A, 3)
+                    depths = proj[:, 2]                          # (A,)
+                    bad_depth = np.abs(depths) < EPS_DENOM
+                    with np.errstate(divide="ignore", invalid="ignore"):
+                        px = np.where(bad_depth, np.inf, proj[:, 0] / depths)
+                        py = np.where(bad_depth, np.inf, proj[:, 1] / depths)
+                    per_view = np.hypot(px - act_pts[:, 0], py - act_pts[:, 1])
 
                     valid_pairs += 1
                     bad_counts += (per_view > self.config.max_reprojection_error).astype(np.int32)
@@ -335,47 +242,6 @@ class Triangulator:
 
         return point_3d.astype(np.float64)
 
-    def _triangulate_two_view(
-        self,
-        pt1: tuple[float, float],
-        pt2: tuple[float, float],
-        P1: np.ndarray,
-        P2: np.ndarray,
-    ) -> np.ndarray:
-        """
-        Triangulate a 3D point from two 2D correspondences.
-
-        Uses cv2.triangulatePoints (Direct Linear Transform).
-
-        Args:
-            pt1: (x, y) in camera 1
-            pt2: (x, y) in camera 2
-            P1: (3, 4) projection matrix for camera 1
-            P2: (3, 4) projection matrix for camera 2
-
-        Returns:
-            (3,) array of world coordinates [x, y, z]
-        """
-        # Convert points to float64 column vectors (required by OpenCV)
-        pts1 = np.array([[pt1[0]], [pt1[1]]], dtype=np.float64)
-        pts2 = np.array([[pt2[0]], [pt2[1]]], dtype=np.float64)
-
-        # Ensure projection matrices are float64
-        P1 = P1.astype(np.float64)
-        P2 = P2.astype(np.float64)
-
-        # Triangulate: returns (4, 1) homogeneous coordinates
-        point_4d_homogeneous = cv2.triangulatePoints(P1, P2, pts1, pts2)
-
-        # Convert from homogeneous to Cartesian coordinates.
-        # W ~= 0 means point at infinity / degenerate triangulation.
-        w = float(point_4d_homogeneous[3, 0])
-        if abs(w) < EPS_DENOM:
-            return np.array([np.nan, np.nan, np.nan], dtype=np.float64)
-        point_3d = point_4d_homogeneous[:3, 0] / w
-
-        return point_3d.astype(np.float64)  # (3,) array, explicit dtype
-
     def _compute_reprojection_error(
         self,
         point_3d: np.ndarray,
@@ -423,19 +289,3 @@ class Triangulator:
         # Return mean error
         return float(np.mean(errors))
 
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    logger.info("Testing Triangulator")
-    logger.info("=" * 60)
-
-    # This is a basic test - full validation is in scene_reconstructor.py
-    from src.config.settings import settings
-
-    triangulator = Triangulator(settings.reconstruction)
-    logger.info("Triangulator created with config:")
-    logger.info(
-        "  max_reprojection_error: %.1f", settings.reconstruction.max_reprojection_error
-    )
-
-    logger.info("\nTriangulator ready for use")
