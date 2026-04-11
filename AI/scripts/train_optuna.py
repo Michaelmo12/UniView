@@ -22,6 +22,14 @@ from datetime import datetime
 import yaml
 import optuna
 from ultralytics import YOLO
+from ultralytics.utils import callbacks as ultralytics_callbacks
+
+# Remove MLflow callback entirely — not needed for Optuna search
+for event in list(ultralytics_callbacks.default_callbacks.keys()):
+    ultralytics_callbacks.default_callbacks[event] = [
+        cb for cb in ultralytics_callbacks.default_callbacks[event]
+        if "mlflow" not in getattr(cb, "__module__", "")
+    ]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -32,7 +40,10 @@ SCRIPT_DIR = Path(__file__).parent
 AI_DIR = SCRIPT_DIR.parent
 CONFIG_PATH = AI_DIR / "configs" / "training_config.yaml"
 DATASET_YAML = AI_DIR / "datasets" / "MATRIX_yolo_format" / "MATRIX.yaml"
-BEST_PARAMS_PATH = AI_DIR / "configs" / "best_params.yaml"
+BEST_PARAMS_PATH = AI_DIR / "configs" / "best_params_nano.yaml"
+MODEL_OVERRIDE = "yolo11n"  # set to None to use training_config.yaml
+OUTPUT_DIR = "optuna_nano_2"   # change this for each new search round
+DB_PATH = AI_DIR / "optuna_nano_2.db"  # SQLite — enables resume if stopped
 
 
 def load_config():
@@ -64,7 +75,7 @@ def objective(trial, config):
     print(f"  lrf: {lrf:.4f}")
 
     # Load model
-    model_size = config["model"]["size"]
+    model_size = MODEL_OVERRIDE or config["model"]["size"]
     pretrained_path = AI_DIR / "models" / "pretrained" / f"{model_size}.pt"
 
     if pretrained_path.exists():
@@ -102,7 +113,7 @@ def objective(trial, config):
             mosaic=aug_cfg["mosaic"],
             mixup=aug_cfg["mixup"],
             # Output
-            project=str(AI_DIR / "models" / "trained" / "optuna"),
+            project=str(AI_DIR / "models" / "trained" / OUTPUT_DIR),
             name=f"trial_{trial.number}",
             exist_ok=True,
             plots=False,
@@ -119,8 +130,66 @@ def objective(trial, config):
         return map50_95
 
     except Exception as e:
+        # MLflow logging fails after training completes — read results from CSV
+        if "mlflow" in str(e).lower() or "Model registry" in str(e):
+            import csv
+            results_csv = AI_DIR / "models" / "trained" / OUTPUT_DIR / f"trial_{trial.number}" / "results.csv"
+            if results_csv.exists():
+                best_map = 0.0
+                with open(results_csv, newline="") as f:
+                    for row in csv.DictReader(f):
+                        val = row.get("metrics/mAP50-95(B)", "").strip()
+                        if val:
+                            try:
+                                best_map = max(best_map, float(val))
+                            except ValueError:
+                                pass
+                print(f"  MLflow error ignored — read from CSV: mAP50-95 = {best_map:.4f}")
+                return best_map
         print(f"  Trial failed: {e}")
         return 0.0
+
+
+def _load_previous_trials(study):
+    """Add completed trials from optuna_nano into the study so Optuna doesn't repeat them."""
+    import csv as csv_module
+    prev_dir = AI_DIR / "models" / "trained" / "optuna_nano"
+    loaded = 0
+    for trial_dir in sorted(prev_dir.glob("trial_*")):
+        args_file = trial_dir / "args.yaml"
+        results_file = trial_dir / "results.csv"
+        if not args_file.exists() or not results_file.exists():
+            continue
+        with open(args_file) as f:
+            args = yaml.safe_load(f)
+        params = {
+            "lr0": float(args["lr0"]),
+            "lrf": float(args["lrf"]),
+            "freeze": int(args["freeze"]),
+            "batch": int(args["batch"]),
+        }
+        best_map = 0.0
+        with open(results_file, newline="") as f:
+            for row in csv_module.DictReader(f):
+                val = row.get("metrics/mAP50-95(B)", "").strip()
+                if val:
+                    try:
+                        best_map = max(best_map, float(val))
+                    except ValueError:
+                        pass
+        trial = optuna.trial.create_trial(
+            params=params,
+            distributions={
+                "lr0": optuna.distributions.FloatDistribution(1e-05, 0.01, log=True),
+                "lrf": optuna.distributions.FloatDistribution(0.01, 0.1, log=True),
+                "freeze": optuna.distributions.IntDistribution(0, 15),
+                "batch": optuna.distributions.CategoricalDistribution([8, 16]),
+            },
+            value=best_map,
+        )
+        study.add_trial(trial)
+        loaded += 1
+    print(f"  Loaded {loaded} previous trials into study — Optuna will explore new territory.")
 
 
 def run_optuna_search():
@@ -142,12 +211,25 @@ def run_optuna_search():
     for param, values in optuna_cfg["search_space"].items():
         print(f"  {param}: {values}")
 
-    # Create study
+    # Create study with SQLite storage — resumes automatically if stopped
+    storage = optuna.storages.RDBStorage(
+        url=f"sqlite:///{DB_PATH}",
+        engine_kwargs={"connect_args": {"timeout": 30}},
+    )
     study = optuna.create_study(
         direction="maximize",
-        study_name="yolo_matrix_optimization",
+        study_name="yolo_matrix_nano_2",
+        storage=storage,
+        load_if_exists=True,
         pruner=optuna.pruners.MedianPruner(n_startup_trials=3),
     )
+    already_done = len([t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE])
+    if already_done:
+        print(f"\n  Resuming: {already_done} trial(s) already complete.")
+    else:
+        # Load previous trials from optuna_nano so Optuna doesn't repeat them
+        _load_previous_trials(study)
+
 
     # Run optimization
     study.optimize(

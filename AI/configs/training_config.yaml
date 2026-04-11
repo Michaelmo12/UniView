@@ -43,7 +43,7 @@ final:
 # OPTUNA - HYPERPARAMETER SEARCH
 # ───────────────────────────────────────────────────────────
 optuna:
-  n_trials: 3                      # כמה ניסויים
+  n_trials: 10                     # כמה ניסויים
   epochs_per_trial: 30             # epochs לכל trial
   timeout: 72000                   # 20 hours max
   
