@@ -1,10 +1,10 @@
 import logging
 from fastapi import FastAPI
 
-from config import settings
-from core.lifespan import lifespan
-from core.middleware import setup_middleware
-from routes import auth, users, system, history
+from src.config import settings
+from src.core.lifespan import lifespan
+from src.core.middleware import setup_middleware
+from src.routes import auth, users, system, history
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

@@ -5,8 +5,8 @@ Handles startup and shutdown events
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from config import settings
-from core.database import engine, Base
+from src.config import settings
+from src.core.database import engine, Base
 
 logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@ HistoryLog model - persists aggregated per-minute tracking statistics
 Written by the gateway aggregator, read by the history dashboard frontend.
 """
 from sqlalchemy import Column, Integer, Float, DateTime
-from core.database import Base
+from src.core.database import Base
 
 
 class HistoryLog(Base):

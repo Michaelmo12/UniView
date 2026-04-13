@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import logging
 
-from core import get_db
-from models import User
-from schemas import UserResponse
+from src.core import get_db
+from src.models import User
+from src.schemas import UserResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users", tags=["Users"])

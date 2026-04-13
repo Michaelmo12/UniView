@@ -6,8 +6,8 @@ import time
 from datetime import datetime
 from fastapi import APIRouter, status, Response
 from sqlalchemy import text
-from config import settings
-from core import engine
+from src.config import settings
+from src.core import engine
 
 router = APIRouter(tags=["System"])
 

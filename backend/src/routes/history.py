@@ -13,8 +13,8 @@ from pydantic import BaseModel
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from core import get_db
-from models import HistoryLog
+from src.core import get_db
+from src.models import HistoryLog
 
 import logging
 
