@@ -1,7 +1,7 @@
 # MATRIX Dataset Configuration for YOLOv11
 # Pedestrian detection from aerial/surveillance footage
 
-path: datasets/MATRIX_yolo_format
+path: C:/Projects_H.W/FINAL-PROJECT/UniView/AI/datasets/MATRIX_yolo_format
 
 train: images/train
 val: images/val

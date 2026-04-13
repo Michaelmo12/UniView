@@ -128,6 +128,7 @@ def resolve_weights(arg):
         "trial_5": AI_DIR / "models/trained/optuna_nano/trial_5/weights/best.pt",
         "final_nano": AI_DIR / "models/trained/final_nano/weights/best.pt",
         "final": AI_DIR / "models/trained/final/weights/best.pt",
+        "small": Path("C:/Projects_H.W/FINAL-PROJECT/UniView/algorithm/weights/best.pt"),
     }
     if arg in shortcuts:
         return shortcuts[arg]

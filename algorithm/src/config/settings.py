@@ -29,7 +29,7 @@ class IngestionConfig:
 class DetectionConfig:
     """Detection stage configuration."""
 
-    weights_file: str = "best_openvino_model"  # OpenVINO FP32
+    weights_file: str = "nano/best_openvino_model"  # OpenVINO FP32 (nano)
     conf_threshold: float = 0.5  # Minimum detection confidence
     iou_threshold: float = 0.45  # NMS IoU threshold
     person_class_id: int = 0  # Class ID for person
