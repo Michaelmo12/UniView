@@ -41,8 +41,9 @@ export async function apiRequest<T>(
   });
 
   if (!response.ok) {
-    // Token expired or revoked — clear session and redirect to login
-    if (response.status === 401) {
+    // Token expired or revoked — clear session and redirect to login.
+    // Skip on /login itself: a 401 there means wrong credentials, not an expired session.
+    if (response.status === 401 && !endpoint.includes('/login')) {
       handleUnauthorized();
     }
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));

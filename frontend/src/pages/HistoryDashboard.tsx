@@ -110,13 +110,18 @@ function HistoryDashboard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // cancelled flag prevents setState if component unmounts before fetch finishes
     let cancelled = false;
     async function fetchHistory() {
       try {
         setLoading(true);
-        const data = await apiRequest<HistoryLogAPI[]>("/history");
+        // fetch only today's history — start_time = midnight UTC today
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const start_time = startOfDay.toISOString();
+        const data = await apiRequest<HistoryLogAPI[]>(`/history?start_time=${encodeURIComponent(start_time)}`);
         if (cancelled) return;
-        // Map API fields to display fields
+        // map raw API fields to cleaner display names and format timestamp to HH:MM
         const mapped: HistoryLog[] = data.map((row) => {
           const dt = new Date(row.timestamp);
           const hh = String(dt.getHours()).padStart(2, "0");
@@ -140,6 +145,7 @@ function HistoryDashboard() {
       }
     }
     fetchHistory();
+    // cleanup: mark cancelled so any in-flight fetch result is ignored
     return () => { cancelled = true; };
   }, []);
 
@@ -180,14 +186,19 @@ function HistoryDashboard() {
     );
   }
 
-  /* Derived statistics */
+  /* Derived statistics — computed from all log entries */
+  // average persons across all minutes
   const avgPersons = Math.round(
     logs.reduce((s, l) => s + l.totalPersons, 0) / logs.length
   );
+  // highest peak persons in any single minute
   const peakPersons = Math.max(...logs.map((l) => l.peakPersons));
+  // highest drone count in any single minute
   const peakDrones  = Math.max(...logs.map((l) => l.activeDrones));
+  // total re-ID matches summed across all minutes
   const totalMatches = logs.reduce((s, l) => s + l.crossCameraMatches, 0);
 
+  // timestamp of the minute where peak persons occurred
   const peakPersonsTime = logs.find((l) => l.peakPersons === peakPersons)?.timestamp ?? "—";
 
   const statCards: StatCardConfig[] = [
@@ -269,14 +280,14 @@ function HistoryDashboard() {
         <div className="history-chart">
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={logs} margin={{ top: 8, right: 24, left: -12, bottom: 0 }}>
-              {/* Subtle grid */}
+              {/* faint horizontal grid lines — no vertical lines to keep it clean */}
               <CartesianGrid
                 strokeDasharray="3 6"
                 stroke="rgba(0,255,136,0.06)"
                 vertical={false}
               />
 
-              {/* Axes */}
+              {/* X axis — time labels (HH:MM), shown every 4th entry to avoid crowding */}
               <XAxis
                 dataKey="timestamp"
                 tick={{ fill: "rgba(255,255,255,0.2)", fontSize: 10, fontFamily: "var(--font-mono)" }}
@@ -284,6 +295,7 @@ function HistoryDashboard() {
                 axisLine={{ stroke: "rgba(0,255,136,0.08)" }}
                 interval={4}
               />
+              {/* Y axis — person/drone count */}
               <YAxis
                 tick={{ fill: "rgba(255,255,255,0.2)", fontSize: 10, fontFamily: "var(--font-mono)" }}
                 tickLine={false}
@@ -291,7 +303,7 @@ function HistoryDashboard() {
                 width={32}
               />
 
-              {/* Average reference line */}
+              {/* horizontal dashed line at the session average — visual reference */}
               <ReferenceLine
                 y={avgPersons}
                 stroke="rgba(0,212,255,0.25)"
@@ -305,9 +317,10 @@ function HistoryDashboard() {
                 }}
               />
 
+              {/* custom tooltip shown on hover — displays all line values at that minute */}
               <Tooltip content={<ChartTooltip />} />
 
-              {/* Avg Persons — primary neon green line */}
+              {/* avg persons per minute — primary green line */}
               <Line
                 type="monotone"
                 dataKey="totalPersons"
@@ -317,7 +330,7 @@ function HistoryDashboard() {
                 activeDot={{ r: 4, fill: "#00ff88", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
 
-              {/* Peak Persons — orange envelope */}
+              {/* peak persons per minute — orange dashed envelope above avg */}
               <Line
                 type="monotone"
                 dataKey="peakPersons"
@@ -328,7 +341,7 @@ function HistoryDashboard() {
                 activeDot={{ r: 3, fill: "#ff9500", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
 
-              {/* Active Drones — cyan secondary */}
+              {/* active drones per minute — cyan dashed */}
               <Line
                 type="monotone"
                 dataKey="activeDrones"
@@ -339,7 +352,7 @@ function HistoryDashboard() {
                 activeDot={{ r: 3, fill: "#00d4ff", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
 
-              {/* Cross-camera matches — purple tertiary */}
+              {/* cross-camera re-ID matches per minute — purple dotted */}
               <Line
                 type="monotone"
                 dataKey="crossCameraMatches"
@@ -398,7 +411,7 @@ function HistoryDashboard() {
             </thead>
             <tbody>
               {logs.map((log, idx) => {
-                // Highlight peak-persons row
+                // mark the row where persons were highest — gets a highlight CSS class
                 const isPeak = log.totalPersons === peakPersons;
                 return (
                   <tr

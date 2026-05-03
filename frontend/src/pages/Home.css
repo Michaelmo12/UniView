@@ -1,3 +1,32 @@
+/* ─── Welcome Toast ──────────────────────────────────────────── */
+.uniview-toast {
+  position: fixed;
+  top: 72px;
+  right: 24px;
+  z-index: 100;
+  background: rgba(0, 20, 10, 0.92);
+  border: 1px solid rgba(0, 255, 136, 0.5);
+  color: #00ff88;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  padding: 10px 18px;
+  border-radius: 4px;
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.15);
+  animation: toastIn 0.3s ease, toastOut 0.4s ease 3.6s forwards;
+  pointer-events: none;
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
 /* ─── Dashboard Shell ─────────────────────────────────────────── */
 .uniview-dashboard {
   display: flex;
@@ -137,14 +166,14 @@
 }
 
 .drone-cell__id {
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 2.5px;
   color: rgba(0, 255, 136, 0.6);
   font-weight: 500;
 }
 
 .drone-cell__status {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   color: rgba(255, 255, 255, 0.12);
   display: flex;
@@ -158,8 +187,8 @@
 
 /* Pulsing red dot next to "REC" — animated via recBlink keyframes */
 .drone-cell__rec-dot {
-  width: 5px;
-  height: 5px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: #ff4466;
   box-shadow: 0 0 5px rgba(255, 68, 102, 0.8);
@@ -224,11 +253,11 @@
   padding: 6px 9px;
   z-index: 6;
   background: linear-gradient(0deg, rgba(10,10,10,0.65) 0%, transparent 100%);
-  font-size: 13px;
+  font-size: 15px;
   letter-spacing: 1px;
   color: rgba(255, 255, 255, 0.1);
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .drone-cell--live .drone-cell__footer {
@@ -242,10 +271,10 @@
   left: 50%;
   transform: translateX(-50%);
   z-index: 7;
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 2px;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 3px;
   pointer-events: none;
 }
