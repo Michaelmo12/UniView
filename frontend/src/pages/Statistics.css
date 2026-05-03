@@ -1,0 +1,338 @@
+.stats-page {
+  min-height: calc(100vh - 104px);
+  padding: 28px 24px;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+  color: rgba(255, 255, 255, 0.45);
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Page Header ─────────────────────────────────────────────── */
+.stats-header {
+  margin-bottom: 28px;
+  padding: 20px 24px 18px;
+  background: rgba(13, 13, 13, 0.95);
+  border-radius: 4px;
+  border: 1px solid rgba(0, 255, 136, 0.1);
+}
+
+.stats-title {
+  font-family: var(--font-condensed, 'IBM Plex Sans Condensed', sans-serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 4px;
+  color: #eeeeee;
+  margin: 0 0 4px 0;
+  text-transform: uppercase;
+}
+
+.stats-subtitle {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: rgba(0, 255, 136, 0.4);
+  margin: 0;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ─── Section ─────────────────────────────────────────────────── */
+.stats-section {
+  margin-bottom: 28px;
+}
+
+.stats-section-label {
+  font-size: 10px;
+  letter-spacing: 2.5px;
+  color: rgba(0, 255, 136, 0.35);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stats-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(0, 255, 136, 0.08);
+}
+
+/* ─── Metric Cards Grid ───────────────────────────────────────── */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stats-grid--wide {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* ─── Metric Card ─────────────────────────────────────────────── */
+.stat-card {
+  background: rgba(13, 13, 13, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  padding: 18px 20px;
+  position: relative;
+  transition: border-color 0.2s ease;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 2px;
+  height: 100%;
+  background: rgba(0, 255, 136, 0.3);
+  border-radius: 4px 0 0 4px;
+  transition: background 0.2s ease;
+}
+
+.stat-card:hover {
+  border-color: rgba(0, 255, 136, 0.12);
+}
+
+.stat-card:hover::before {
+  background: rgba(0, 255, 136, 0.65);
+}
+
+.stat-card--green::before        { background: rgba(0, 255, 136, 0.35); }
+.stat-card--green:hover::before  { background: rgba(0, 255, 136, 0.7); }
+.stat-card--orange::before       { background: rgba(255, 136, 68, 0.35); }
+.stat-card--orange:hover::before { background: rgba(255, 136, 68, 0.7); }
+.stat-card--purple::before       { background: rgba(185, 104, 255, 0.35); }
+.stat-card--purple:hover::before { background: rgba(185, 104, 255, 0.7); }
+
+.stat-card__label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.2);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.stat-card__value {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 1.9rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.1);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-card__desc {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.12);
+  line-height: 1.55;
+}
+
+/* ─── Red variant (Critical status) ─────────────────────────── */
+.stat-card--red::before       { background: rgba(255, 68, 68, 0.35); }
+.stat-card--red:hover::before { background: rgba(255, 68, 68, 0.7); }
+
+/* ─── Card header (icon + label row) ────────────────────────── */
+.stat-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.stat-card__header .stat-card__label {
+  margin-bottom: 0;
+}
+
+.stat-card__header svg {
+  color: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+/* ─── Active value text (override placeholder dimming) ──────── */
+.stat-card--active .stat-card__value {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.stat-card--active .stat-card__desc {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ─── Refresh button ────────────────────────────────────────── */
+.stats-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stats-refresh-btn {
+  background: rgba(0, 255, 136, 0.08);
+  border: 1px solid rgba(0, 255, 136, 0.2);
+  border-radius: 4px;
+  color: rgba(0, 255, 136, 0.6);
+  padding: 6px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.stats-refresh-btn:hover {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: rgba(0, 255, 136, 0.4);
+  color: rgba(0, 255, 136, 0.9);
+}
+
+.stats-refresh-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.stats-refresh-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ─── Loading state ─────────────────────────────────────────── */
+.stats-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  color: rgba(0, 255, 136, 0.4);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ─── Error state ───────────────────────────────────────────── */
+.stats-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  gap: 12px;
+}
+
+.stats-error__message {
+  color: rgba(255, 68, 68, 0.7);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.stats-error__retry {
+  background: rgba(255, 68, 68, 0.08);
+  border: 1px solid rgba(255, 68, 68, 0.2);
+  border-radius: 4px;
+  color: rgba(255, 68, 68, 0.6);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 600;
+  font-family: var(--font-ui, 'IBM Plex Sans', sans-serif);
+  transition: all 0.2s ease;
+}
+
+.stats-error__retry:hover {
+  background: rgba(255, 68, 68, 0.15);
+  border-color: rgba(255, 68, 68, 0.4);
+  color: rgba(255, 68, 68, 0.9);
+}
+
+/* ─── 4-column grid for algorithm status ────────────────────── */
+.stats-grid--quad {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 900px) {
+  .stats-grid--quad {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ─── Stage Timings ───────────────────────────────────────────── */
+.stats-timings {
+  background: rgba(13, 13, 13, 0.95);
+  border: 1px solid rgba(0, 255, 136, 0.08);
+  border-radius: 4px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stats-timing-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 72px 40px;
+  align-items: center;
+  gap: 12px;
+}
+
+.stats-timing-row--total {
+  grid-template-columns: 130px 1fr 72px;
+  margin-top: 6px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.stats-timing-label {
+  font-family: var(--font-condensed, 'IBM Plex Mono', monospace);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.5);
+}
+
+.stats-timing-row--total .stats-timing-label {
+  color: rgba(255,255,255,0.75);
+  font-weight: 600;
+}
+
+.stats-timing-bar-wrap {
+  height: 3px;
+  background: rgba(255,255,255,0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.stats-timing-bar {
+  height: 100%;
+  background: rgba(0, 255, 136, 0.6);
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+.stats-timing-row--total .stats-timing-bar {
+  background: rgba(0, 255, 136, 0.9);
+}
+
+.stats-timing-value {
+  font-family: var(--font-condensed, 'IBM Plex Mono', monospace);
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  text-align: right;
+}
+
+.stats-timing-row--total .stats-timing-value {
+  color: #00ff88;
+  font-weight: 600;
+}
+
+.stats-timing-pct {
+  font-size: 10px;
+  color: rgba(255,255,255,0.3);
+  text-align: right;
+}

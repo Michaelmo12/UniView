@@ -1,0 +1,12 @@
+# MATRIX Dataset — local validation config
+# Used by val_yolo.py benchmark script only (not for training)
+
+path: C:/Projects_H.W/FINAL-PROJECT/UniView/AI/datasets/MATRIX_yolo_format
+
+train: D1
+val: D1
+test: D1
+
+nc: 1
+names:
+  0: person

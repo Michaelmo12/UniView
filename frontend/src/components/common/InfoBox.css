@@ -2,13 +2,13 @@
   margin-top: 3rem;
   padding: 1.5rem;
   border-radius: 8px;
-  color: #cbd5e0;
+  color: #aaaaaa;
   font-size: 0.875rem;
 }
 
 .info-box-info {
-  background: rgba(0, 212, 255, 0.05);
-  border: 1px solid rgba(0, 212, 255, 0.2);
+  background: rgba(0, 255, 136, 0.05);
+  border: 1px solid rgba(0, 255, 136, 0.2);
 }
 
 .info-box-warning {
@@ -26,7 +26,7 @@
 }
 
 .info-box strong {
-  color: var(--neon-blue);
+  color: var(--neon-green);
 }
 
 .info-box-warning strong {

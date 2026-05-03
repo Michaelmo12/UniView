@@ -25,7 +25,7 @@
 }
 
 .stream-card-title {
-  color: var(--neon-blue);
+  color: var(--neon-green);
   font-size: 1.25rem;
   margin: 0 0 1rem 0;
   text-shadow: 0 0 10px currentColor;

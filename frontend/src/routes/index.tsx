@@ -3,6 +3,8 @@ import { ProtectedRoute } from "../components/common";
 import Home from "../pages/Home.tsx";
 import Login from "../pages/Login.tsx";
 import AddUser from "../pages/AddUser.tsx";
+import Statistics from "../pages/Statistics.tsx";
+import HistoryDashboard from "../pages/HistoryDashboard.tsx";
 
 function AppRoutes() {
   return (
@@ -16,6 +18,22 @@ function AppRoutes() {
         }
       />
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/statistics"
+        element={
+          <ProtectedRoute>
+            <Statistics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/history"
+        element={
+          <ProtectedRoute>
+            <HistoryDashboard />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin/add-user"
         element={

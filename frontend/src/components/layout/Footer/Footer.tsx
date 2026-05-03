@@ -5,7 +5,7 @@ function Footer() {
     <footer className="footer">
       <div className="footer-container">
         <p className="footer-text">
-          Created by <span className="creator-name">Michael Mordehai</span>
+          Created by <span className="creator-name">Michael Mordechai</span>
         </p>
         <a href="mailto:mordohmichael9@gmail.com" className="footer-email">
           mordohmichael9@gmail.com

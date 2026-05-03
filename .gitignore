@@ -1,7 +1,17 @@
 # Project-specific files and folders
+algorithm/src/scripts/
 MATRIX_30x30/
 venv/
-.claude/
+
+
+# Secrets
+.env
+
+# Log files
+*.log
+
+# YOLO cache files
+*.cache
 
 # Python cache files
 __pycache__/
@@ -9,3 +19,4 @@ __pycache__/
 *.pyo
 *.pyd
 .Python
+
