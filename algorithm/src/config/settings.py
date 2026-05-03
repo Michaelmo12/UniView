@@ -181,4 +181,3 @@ class Settings:
 # Singleton instance - all modules import this same object
 # Even if Settings() is called again elsewhere, it returns this same instance
 settings = Settings()
-

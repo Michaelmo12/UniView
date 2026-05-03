@@ -6,7 +6,7 @@ Port is derived from base_port + drone_id - 1 so all 8 drones
 use distinct ports (16000-16007 by default).
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -27,16 +27,28 @@ class StreamerConfig:
         num_drones:   Total number of drones, used by run_all_drones.py launcher.
     """
 
+    # Root path to the MATRIX dataset folder
     dataset_path: str = "MATRIX"
+    # Which drone this instance represents (1-8)
     drone_id: int = 1
+    # Bind address — "0.0.0.0" accepts connections from any IP
     host: str = "0.0.0.0"
+    # Base port — drone N listens on base_port + N - 1 (drone1=16000, drone2=16001, ...)
     base_port: int = 16000
+    # Frames per second to send
     fps: float = 2.0
+    # JPEG quality 0-100 — higher = better image but larger packet size
     jpeg_quality: int = 85
+    # When True, restart from frame 0 when dataset is exhausted
     loop: bool = True
+    # Total number of drones — used by the launcher to start all instances
     num_drones: int = 8
+    # Stop after sending this many frames (0 = unlimited)
+    max_frames: int = 0
 
     @property
     def port(self) -> int:
+        # Computed from base_port + drone_id - 1 so it's always consistent
+        # A regular field could be set incorrectly — property guarantees correctness
         """Compute the listening port for this drone instance."""
         return self.base_port + (self.drone_id - 1)

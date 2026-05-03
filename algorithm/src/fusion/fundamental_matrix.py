@@ -27,10 +27,7 @@ def compute_fundamental_matrix(P1: np.ndarray, P2: np.ndarray) -> np.ndarray:
 
     # Step 1: Find Camera 1's physical location (C1)
     # Formula: P1 @ C1 = 0
-    # We are looking for the "Camera Center".
     # Mathematically, this is the only 3D point that projects to "0" (disappears)
-    # because you cannot take a picture of the camera's own lens center.
-    # We use SVD to find this "Null Space".
     # svd breaks P1 into U, S, Vt such that P1 = U @ S @ Vt
     _, _, Vt = np.linalg.svd(P1)
     C1 = Vt[-1, :]  # The last row of V^T is the solution C1 where P1 @ C1 = 0
@@ -60,6 +57,7 @@ def compute_fundamental_matrix(P1: np.ndarray, P2: np.ndarray) -> np.ndarray:
     # 3. 'P2' projects that 3D point onto Image 2.
     # 4. 'e2_cross' ([e2]_x) connects that point to the epipole to form a line.
     P1_pinv = np.linalg.pinv(P1)  # Shape: (4, 3)
+    P1_pinv = P1.T @ np.linalg.inv(P1 @ P1.T)  # White-box pseudo-inverse
     F = e2_cross @ P2 @ P1_pinv  # Shape: (3, 3)
 
     # Step 5: Clean up noise (Enforce Rank-2)
@@ -89,8 +87,10 @@ def compute_fundamental_matrix_batch(
         F_ij maps points from camera i to epipolar lines in camera j
     """
     result = {}
+    # sort so pairs are always (lower_id, higher_id) — consistent ordering
     drone_ids = sorted(projection_matrices.keys())
 
+    # j starts at i+1 so we never repeat a pair (same as itertools.combinations)
     for i in range(len(drone_ids)):
         for j in range(i + 1, len(drone_ids)):
             drone_id_i = drone_ids[i]
@@ -99,8 +99,10 @@ def compute_fundamental_matrix_batch(
             P_i = projection_matrices[drone_id_i]
             P_j = projection_matrices[drone_id_j]
 
+            # F maps points in cam i → epilines in cam j
             F_ij = compute_fundamental_matrix(P_i, P_j)
 
+            # key is (drone_i, drone_j) tuple
             result[(drone_id_i, drone_id_j)] = F_ij
 
     return result

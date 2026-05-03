@@ -20,12 +20,14 @@ logger = logging.getLogger(__name__)
 
 class SSEBroadcaster:
     def __init__(self) -> None:
+        # list of mailboxes 
         self._queues: list[asyncio.Queue] = []
 
     async def push_event(self, payload: dict) -> None:
         """Fan out payload to all connected SSE clients. Skip slow clients (queue full)."""
         # Serialize the dict to a JSON string once — same string goes to every client
         data_str = json.dumps(payload)
+        # for each mailbox
         for q in list(self._queues):
             try:
                 # put_nowait = drop the message into the client's mailbox instantly.
@@ -37,19 +39,27 @@ class SSEBroadcaster:
 
     async def subscribe(self) -> AsyncIterator[str]:
         """Async generator yielding SSE-formatted strings. One per client connection."""
+        # create a dedicated mailbox for this client\
         q: asyncio.Queue = asyncio.Queue(maxsize=10)
+        # register this client so push_event() will deliver to it
         self._queues.append(q)
         logger.info("SSE client subscribed. Total: %d", len(self._queues))
         try:
+            # loop forever — one iteration per frame event or keepalive
             while True:
                 try:
+                    # wait up to 25s for the next message from push_event()
                     data_str = await asyncio.wait_for(q.get(), timeout=25.0)
+                    # SSE wire format: "data: {json}\n\n"
                     yield f"data: {data_str}\n\n"
                 except asyncio.TimeoutError:
+                    # no frame in 25s — send heartbeat so proxies don't close the connection
                     yield ": keepalive\n\n"
         except asyncio.CancelledError:
+            # browser disconnected — exit cleanly
             pass
         finally:
+            # remove this client's queue so push_event() stops delivering to it
             if q in self._queues:
                 self._queues.remove(q)
             logger.info("SSE client unsubscribed. Total: %d", len(self._queues))

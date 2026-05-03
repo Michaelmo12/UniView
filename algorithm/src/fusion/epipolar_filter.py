@@ -77,7 +77,7 @@ def compute_epipolar_distance(
     # Return symmetric distance (average of both directions)
     return (dist_1 + dist_2) / 2.0
 
-
+# UTILITY — not called by the pipeline, standalone helper only
 def filter_by_epipolar_constraint(
     features1: PersonFeatures,
     features2: PersonFeatures,
@@ -109,6 +109,7 @@ def filter_by_epipolar_constraint(
     return is_valid, distance
 
 
+# UTILITY — not called by the pipeline, standalone helper only
 def filter_matches_batch(
     features_list: list[PersonFeatures],
     threshold: float,
@@ -132,6 +133,7 @@ def filter_matches_batch(
     """
     matches = []
 
+    # for every pair once comput filter
     for i in range(len(features_list)):
         for j in range(i + 1, len(features_list)):
             feat1 = features_list[i]

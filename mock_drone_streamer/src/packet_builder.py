@@ -38,13 +38,17 @@ class PacketBuilder:
                                jpeg_bytes=jpeg, K=K, R=R, t=t, dist=dist)
     """
 
-    # Format strings (little-endian)
-    HEADER_FORMAT: str = "<BIQ"          # uint8 + uint32 + uint64 = 13 bytes
-    CALIBRATION_FORMAT: str = "<9f9f3f5f"  # 26 x float32 = 104 bytes
+    # < means little-endian (least significant byte first)
+    # Both sender and receiver must use the same byte order or numbers unpack as garbage
+    # B=uint8(drone_id) + I=uint32(frame_num) + Q=uint64(timestamp_ns) = 13 bytes
+    HEADER_FORMAT: str = "<BIQ"
 
-    HEADER_SIZE: int = struct.calcsize(HEADER_FORMAT)         # 13
+    # 9f=K(3x3) + 9f=R(3x3) + 3f=t + 5f=dist = 26 floats x 4 bytes = 104 bytes
+    CALIBRATION_FORMAT: str = "<9f9f3f5f"
+
+    HEADER_SIZE: int = struct.calcsize(HEADER_FORMAT)  # 13
     CALIBRATION_SIZE: int = struct.calcsize(CALIBRATION_FORMAT)  # 104
-    FIXED_SIZE: int = HEADER_SIZE + CALIBRATION_SIZE          # 117
+    FIXED_SIZE: int = HEADER_SIZE + CALIBRATION_SIZE  # 117
 
     def build_packet(
         self,
@@ -73,6 +77,7 @@ class PacketBuilder:
         Returns:
             Complete packet as bytes: header + calibration + jpeg.
         """
+        # int() ensures plain Python int — struct.pack is C-based and rejects numpy int types
         header = struct.pack(
             self.HEADER_FORMAT,
             int(drone_id),
@@ -80,12 +85,14 @@ class PacketBuilder:
             int(timestamp_ns),
         )
 
-        # Flatten arrays to 1-D sequences of Python floats for struct.pack
-        K_flat = K.flatten().tolist()    # 9 floats
-        R_flat = R.flatten().tolist()    # 9 floats
-        t_flat = t.flatten().tolist()    # 3 floats
-        dist_flat = dist.flatten().tolist()  # 5 floats
+        # flatten() converts 2D matrix → 1D array (e.g. 3x3 → 9 values)
+        # tolist() converts numpy types → plain Python floats (struct.pack requires plain Python types)
+        K_flat = K.flatten().tolist()
+        R_flat = R.flatten().tolist()
+        t_flat = t.flatten().tolist()
+        dist_flat = dist.flatten().tolist()
 
+        # * unpacks list into individual arguments (struct.pack needs separate values, not a list)
         calibration = struct.pack(
             self.CALIBRATION_FORMAT,
             *K_flat,
@@ -94,4 +101,5 @@ class PacketBuilder:
             *dist_flat,
         )
 
+        # Concatenate all parts into one binary blob: 13 bytes header + 104 bytes calibration + N bytes JPEG
         return header + calibration + jpeg_bytes

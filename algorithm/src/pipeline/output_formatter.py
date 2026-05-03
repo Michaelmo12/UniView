@@ -67,6 +67,7 @@ def build_payloads(
             if det.local_id is not None:
                 detection_lookup[(drone_id, det.local_id)] = det
 
+    # for each active drone — build and yield one payload dict
     for drone_id, drone_frame in sync_set.frames.items():
         # Encode raw JPEG — no bboxes drawn
         encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
@@ -81,22 +82,26 @@ def build_payloads(
         tracks: list[dict] = []
         confidences: list[float] = []
 
+        # for each CONFIRMED tracked person — find if they appear on this drone
         for p in result.tracked_persons:
             if p.source_person is None:
                 continue
 
             # Find if this confirmed person has a detection from this drone
-            drone_dets = [
-                (did, lid)
-                for did, lid in p.source_person.source_detections
-                if did == drone_id
-            ]
+            drone_dets = []
+            for did, lid in p.source_person.source_detections:
+                if did == drone_id:
+                    drone_dets.append((did, lid))
+            # no detections in this drone continue
             if not drone_dets:
                 continue
 
+            # take the first (and only) detection this person has on this drone
             _, local_id = drone_dets[0]
+            # look up the full Detection object by (drone_id, local_id)
             det = detection_lookup.get((drone_id, local_id))
 
+            # det found — extract bbox coords and confidence (convert numpy types to plain float)
             if det is not None:
                 x1, y1, x2, y2 = (
                     float(det.bbox.x1),
@@ -106,6 +111,7 @@ def build_payloads(
                 )
                 conf = float(det.confidence)
                 confidences.append(conf)
+            # det missing (track is coasting, no detection this frame) — zero out bbox
             else:
                 x1 = y1 = x2 = y2 = 0.0
                 conf = 0.0
@@ -121,18 +127,22 @@ def build_payloads(
                 "frames_tracked": int(p.frames_tracked),
             })
 
-        # Also include single-view persons visible on this drone (global_id = -1)
+        # for each single-view person — emit with global_id=-1 (frontend draws dashed box)
         for person in result.single_view_persons:
-            drone_dets = [
-                (did, lid)
-                for did, lid in person.source_detections
-                if did == drone_id
-            ]
+            # filter source_detections to only this drone's detections
+            drone_dets = []
+            for did, lid in person.source_detections:
+                if did == drone_id:
+                    drone_dets.append((did, lid))
+            # person not seen by this drone — skip
             if not drone_dets:
                 continue
 
+            # take the first (and only) detection this person has on this drone
             _, local_id = drone_dets[0]
+            # look up the full Detection object by (drone_id, local_id)
             det = detection_lookup.get((drone_id, local_id))
+            # detection missing from lookup — skip
             if det is None:
                 continue
 

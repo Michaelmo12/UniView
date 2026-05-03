@@ -17,11 +17,14 @@ class YOLODetector:
         # Load from config
         self.weights_path = settings.weights_path
         self.conf_threshold = settings.detection.conf_threshold
+        # used for NMS
         self.iou_threshold = settings.detection.iou_threshold
         self.device = settings.detection.device
         self.person_class_id = settings.detection.person_class_id
+        # img size before running
         self.imgsz = settings.detection.imgsz
 
+        # Weights check + model load
         if not self.weights_path.exists():
             raise FileNotFoundError(f"Weights not found: {self.weights_path}")
 
@@ -40,9 +43,16 @@ class YOLODetector:
         # Without this the first real frame takes ~5s instead of ~100ms.
         logger.info("Warming up YOLO model (OpenVINO JIT)...")
         _dummy = np.zeros((1080, 1920, 3), dtype=np.uint8)
-        self.model.predict(_dummy, conf=self.conf_threshold, iou=self.iou_threshold,
-                           classes=[self.person_class_id], verbose=False,
-                           imgsz=self.imgsz, device=self.device)
+        self.model.predict(
+            _dummy,
+            conf=self.conf_threshold,
+            # if two boxes share more than 70% of their area, they're duplicates — kill the weaker one.
+            iou=self.iou_threshold,
+            classes=[self.person_class_id],
+            verbose=False,
+            imgsz=self.imgsz,
+            device=self.device,
+        )
         logger.info("YOLO warmup complete.")
 
     def detect(self, frame: np.ndarray, drone_id: int, frame_num: int) -> DetectionSet:
@@ -54,7 +64,7 @@ class YOLODetector:
             conf=self.conf_threshold,
             iou=self.iou_threshold,
             classes=[self.person_class_id],
-            # to not see any ultralytics logging output, set verbose=False. We will log our own info. and not flood the console.
+            # to not see any ultralytics logging output, and not flood the console.
             verbose=False,
             imgsz=self.imgsz,
             device=self.device,
@@ -64,12 +74,12 @@ class YOLODetector:
 
         detections = self._parse_results(results[0], drone_id, frame_num)
 
-        logger.debug(
-            "Detected %d persons in drone %d frame %d (%.3fs)",
-            len(detections),
+        logger.info(
+            "YOLO inference drone %d frame %d: %.3fs, %d person(s) detected",
             drone_id,
             frame_num,
             inference_time,
+            len(detections),
         )
 
         # Return a DetectionSet containing all detections for this frame
@@ -90,9 +100,12 @@ class YOLODetector:
         _dummy = np.zeros((1080, 1920, 3), dtype=np.uint8)
         self.model.predict(
             [_dummy] * 4,
-            conf=self.conf_threshold, iou=self.iou_threshold,
-            classes=[self.person_class_id], verbose=False,
-            imgsz=self.imgsz, device=self.device,
+            conf=self.conf_threshold,
+            iou=self.iou_threshold,
+            classes=[self.person_class_id],
+            verbose=False,
+            imgsz=self.imgsz,
+            device=self.device,
         )
         logger.info("Batch warmup complete.")
 
@@ -114,19 +127,33 @@ class YOLODetector:
         """
         start_time = time.time()
 
+        # EXAMPLE: batch_results=[r3, r4, r6, r7]
         batch_results = self.model.predict(
             frames,
-            conf=self.conf_threshold, iou=self.iou_threshold,
-            classes=[self.person_class_id], verbose=False,
-            imgsz=self.imgsz, device=self.device,
+            conf=self.conf_threshold,
+            iou=self.iou_threshold,
+            classes=[self.person_class_id],
+            verbose=False,
+            imgsz=self.imgsz,
+            device=self.device,
         )
 
+        # LOGGING
+        # total time for all drones combined
         total_time = time.time() - start_time
+        # avg
         per_drone_time = total_time / len(drone_ids)
 
+        # output dict: drone_id -> DetectionSet
         output: dict[int, DetectionSet] = {}
+
+        # pair each drone_id with its YOLO result (same order as input frames list)
         for drone_id, result in zip(drone_ids, batch_results):
+
+            # convert raw YOLO result into list of Detection objects
             detections = self._parse_results(result, drone_id, frame_num)
+
+            # wrap detections in a DetectionSet and store under drone_id
             output[drone_id] = DetectionSet(
                 drone_id=drone_id,
                 frame_num=frame_num,
@@ -134,9 +161,13 @@ class YOLODetector:
                 inference_time=per_drone_time,
             )
 
-        logger.debug(
-            "Batch detect: %d drones, frame %d, total=%.3fs (%.3fs/drone avg)",
-            len(drone_ids), frame_num, total_time, per_drone_time,
+        # LOGGING
+        logger.info(
+            "YOLO batch inference frame %d: %.3fs total, %.3fs/drone avg (%d drones)",
+            frame_num,
+            total_time,
+            per_drone_time,
+            len(drone_ids),
         )
 
         return output
@@ -147,22 +178,30 @@ class YOLODetector:
         Converts each box into a Detection object
         Returns a plain list of detections
         """
+        # empty list to collect Detection objects
         detections = []
 
+        # if YOLO found nothing, return empty list early
         if results.boxes is None or len(results.boxes) == 0:
             return detections
 
+        # all bounding boxes as numpy array, shape (N, 4) — each row is [x1, y1, x2, y2]
         boxes_xyxy = results.boxes.xyxy.cpu().numpy()  # (N, 4)
+        # confidence score per detection, shape (N,)
         confidences = results.boxes.conf.cpu().numpy()  # (N,)
+        # class ID per detection (always 0 = person), shape (N,)
         class_ids = results.boxes.cls.cpu().numpy()  # (N,)
 
+        # iterate all three arrays together; enumerate gives local_id (0, 1, 2...) for each detection
         for local_id, (box, conf, cls) in enumerate(
             zip(boxes_xyxy, confidences, class_ids)
         ):
+            # convert raw [x1,y1,x2,y2] row into a BoundingBox; float() converts numpy scalar to Python float
             bbox = BoundingBox(
                 x1=float(box[0]), y1=float(box[1]), x2=float(box[2]), y2=float(box[3])
             )
 
+            # build Detection object; local_id is the index within this frame used by fusion stage
             detection = Detection(
                 bbox=bbox,
                 class_id=int(cls),
@@ -174,5 +213,5 @@ class YOLODetector:
 
             detections.append(detection)
 
+        # return all detections for this frame
         return detections
-

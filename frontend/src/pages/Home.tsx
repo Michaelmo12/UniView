@@ -23,7 +23,7 @@ function DroneCell({ id, payload, sseStatus }: DroneCellProps) {
   useEffect(() => {
     if (payload !== null) {
       lastSeenRef.current = Date.now();
-      setIsStale(false);
+      setTimeout(() => setIsStale(false), 0);
     }
   }, [payload]);
 
@@ -131,15 +131,15 @@ function DroneCell({ id, payload, sseStatus }: DroneCellProps) {
           ctx.setLineDash([]);
           ctx.strokeRect(rx, ry, rw, rh);
 
-          // Small label pill above top-left corner
-          const label = `${track.global_id}`;
-          ctx.font = "500 10px monospace";
+          // Small label pill at bottom-left of bounding box
+          const label = `ID:${track.global_id}`;
+          ctx.font = "600 14px monospace";
           const textW = ctx.measureText(label).width;
-          const padX = 3;
-          const padY = 2;
-          const labelH = 13;
+          const padX = 4;
+          const padY = 3;
+          const labelH = 18;
           const lx = rx;
-          const ly = ry - labelH - 1;
+          const ly = ry + rh + 1;
 
           ctx.fillStyle = color + "33";
           ctx.fillRect(lx, ly, textW + padX * 2, labelH);
@@ -147,7 +147,7 @@ function DroneCell({ id, payload, sseStatus }: DroneCellProps) {
           ctx.lineWidth = 0.5;
           ctx.strokeRect(lx, ly, textW + padX * 2, labelH);
           ctx.fillStyle = color;
-          ctx.font = "500 10px monospace";
+          ctx.font = "600 14px monospace";
           ctx.fillText(label, lx + padX, ly + labelH - padY - 1);
         }
       });

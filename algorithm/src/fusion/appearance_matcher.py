@@ -32,6 +32,8 @@ class AppearanceMatcher:
         Returns:
             List of WCH feature vectors (96-dimensional)
         """
+
+        # Pulls the 96-dim WCH vector from each Detection.features
         features = []
         for det in detections:
             if det.features is not None:
@@ -76,6 +78,7 @@ class AppearanceMatcher:
         # Since WCH is L2-normalized, dot product equals cosine similarity(Cosine similarity = (a · b) / (||a|| × ||b||) and ||a|| = ||b|| = 1)
         similarity = A @ B.T  # (n, m)
 
+        # similarity matrix for each det in cam1 to each det in cam2
         return similarity
 
     def optimal_assignment(
@@ -96,6 +99,7 @@ class AppearanceMatcher:
         Returns:
             List of (idx_a, idx_b, similarity) for optimal matches above threshold
         """
+        # no
         if len(candidates) == 0:
             return []
 
@@ -110,7 +114,8 @@ class AppearanceMatcher:
         idx_a_list = sorted(idx_a_set)
         idx_b_list = sorted(idx_b_set)
 
-        # Build mapping from original indices to sub-matrix indices
+        # Build mapping index → position
+        # EXAMPLE: a_to_sub = {0: 0, 2: 1}
         a_to_sub = {}
         for sub, orig in enumerate(idx_a_list):
             a_to_sub[orig] = sub
@@ -126,8 +131,10 @@ class AppearanceMatcher:
 
         # Fill sub-matrix from full similarity matrix
         for idx_a, idx_b, _ in candidates:
+            # get det idx
             sub_i = a_to_sub[idx_a]
             sub_j = b_to_sub[idx_b]
+            # for each idx give the score from original similarity matrix
             sub_similarity[sub_i, sub_j] = similarity_matrix[idx_a, idx_b]
 
         # Convert similarity to cost (Hungarian minimizes)
@@ -189,8 +196,17 @@ class AppearanceMatcher:
             return []
 
         # Check if any detections have features
-        valid_a = any(det.features is not None for det in detections_a)
-        valid_b = any(det.features is not None for det in detections_b)
+        valid_a = False
+        for det in detections_a:
+            if det.features is not None:
+                valid_a = True
+                break
+
+        valid_b = False
+        for det in detections_b:
+            if det.features is not None:
+                valid_b = True
+                break
 
         if not valid_a or not valid_b:
             logger.warning(
@@ -210,8 +226,9 @@ class AppearanceMatcher:
             if det.features is not None:
                 valid_b_indices.add(i)
 
-        # Filter candidates
+        # Filter candidates who can perform in the hungarian similarity check
         filtered_candidates = []
+        # idx_a and idx_b are indexes from the detections lists (lists a and b)
         for idx_a, idx_b, dist in candidates:
             if idx_a in valid_a_indices and idx_b in valid_b_indices:
                 filtered_candidates.append((idx_a, idx_b, dist))
@@ -240,4 +257,3 @@ class AppearanceMatcher:
         )
 
         return confirmed
-

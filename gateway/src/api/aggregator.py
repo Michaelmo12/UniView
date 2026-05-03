@@ -16,6 +16,7 @@ class HistoryAggregator:
     """
 
     def __init__(self) -> None:
+        # Each value is a list of all payloads received in that minute.
         self._buffers: dict[str, list[dict]] = {}
         self._current_minute: Optional[str] = None
 
@@ -88,7 +89,7 @@ class HistoryAggregator:
                 "Failed to flush history for minute %s: %s", minute_key, exc
             )
 
-
+    #for frontend statistics page
     def get_current_status(self) -> dict:
         """
         Return the current in-memory system status derived from the active minute's buffer.
@@ -96,10 +97,12 @@ class HistoryAggregator:
         """
         _default = {"active_drones": 0, "active_tracks": 0, "server_fps": 0.0, "system_status": "Optimal"}
 
+        # no data received yet — algorithm not running
         if self._current_minute is None:
             return _default
 
         payloads = self._buffers.get(self._current_minute, [])
+        # buffer exists but empty — return defaults
         if not payloads:
             return _default
 

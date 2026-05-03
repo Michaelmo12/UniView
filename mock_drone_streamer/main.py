@@ -83,6 +83,13 @@ def _parse_args() -> argparse.Namespace:
         help="Stop when dataset frames are exhausted (default: loop forever).",
     )
     parser.add_argument(
+        "--max-frames",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Stop after sending N frames (0 = unlimited).",
+    )
+    parser.add_argument(
         "--debug",
         action="store_true",
         help="Enable DEBUG log level.",
@@ -104,6 +111,7 @@ def main() -> None:
         fps=args.fps,
         jpeg_quality=args.jpeg_quality,
         loop=not args.no_loop,
+        max_frames=args.max_frames,
     )
 
     # Override derived port if --port was explicitly provided

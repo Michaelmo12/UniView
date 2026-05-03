@@ -16,11 +16,15 @@ import numpy as np
 
 @dataclass
 class BoundingBox:
+    # yolo output is float
+    # top left
     x1: float
     y1: float
+    # bottom right
     x2: float
     y2: float
 
+    # __post_init__ — called automatically by @dataclass after __init__
     def __post_init__(self):
         assert self.x2 >= self.x1, f"Invalid bbox: x2={self.x2} < x1={self.x1}"
         assert self.y2 >= self.y1, f"Invalid bbox: y2={self.y2} < y1={self.y1}"
@@ -43,6 +47,7 @@ class BoundingBox:
     def area(self) -> float:
         return self.width * self.height
 
+    # called with class object not instance: BoundingBox.from_xyxy(array)
     @classmethod
     def from_xyxy(cls, coords: np.ndarray) -> "BoundingBox":
         return cls(x1=coords[0], y1=coords[1], x2=coords[2], y2=coords[3])
@@ -87,6 +92,7 @@ class Detection:
     confidence: float
     drone_id: int
     frame_num: int
+    # id assigned by yolo for each detection in this frame
     local_id: Optional[int] = None
     features: Optional[np.ndarray] = (
         None  # WCH feature vector, set by feature extraction stage
@@ -127,6 +133,7 @@ class DetectionSet:
     drone_id: int
     frame_num: int
     detections: list[Detection]
+    # logging
     inference_time: float = 0.0
 
     @property
@@ -165,4 +172,3 @@ class DetectionSet:
             f"DetectionSet(drone={self.drone_id}, frame={self.frame_num}, "
             f"detections={self.num_detections}, time={self.inference_time:.3f}s)"
         )
-

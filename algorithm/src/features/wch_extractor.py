@@ -63,21 +63,31 @@ class WCHExtractor:
         start_time = time.perf_counter()
         features_list = []
 
+        # Loops every detection. returns a 96-dim numpy array
         for detection in detectionSet.detections:
             try:
+                # get wch for the det
                 wch_vector = self._extract_single(frame.frame, detection)
+
+                # if crop too small = none
                 if wch_vector is not None:
-                    # Keep image-space bbox for crops/visualization, but use geometry-space
-                    # center for epipolar and triangulation related math.
+
+                    # MIRRORED IMAGE SO WE FLIP (MY SPECIFIC DATASET)
                     bbox_center = detection.bbox.center
                     geom_center = bbox_center
+                    # only flip if config flag is set (dataset-specific)
                     if settings.geometry.flip_x_for_geometry:
+                        # use manual override if set, otherwise read actual pixel width from image shape (H,W,C) → index 1
                         width = (
                             settings.geometry.image_width_override
                             if settings.geometry.image_width_override > 0
                             else frame.frame.shape[1]
                         )
-                        geom_center = (float(width) - float(bbox_center[0]), float(bbox_center[1]))
+                        # mirror x by subtracting from total width; y is unchanged
+                        geom_center = (
+                            float(width) - float(bbox_center[0]),
+                            float(bbox_center[1]),
+                        )
 
                     # Set feature vector on detection for downstream stages
                     detection.features = wch_vector
@@ -113,6 +123,7 @@ class WCHExtractor:
                 )
                 detection.features = None
 
+        # 
         elapsed = time.perf_counter() - start_time
         logger.debug(
             "Extracted features for %d/%d detections in %.1fms (drone=%d, frame=%d)",
@@ -140,7 +151,7 @@ class WCHExtractor:
         Returns:
             96-dimensional L2-normalized WCH vector, or None if crop too small
         """
-        # 1. clip bbox to image bounds
+        # 1. clip bbox to image bounds WIDTH AND HEIGHT
         clipped = detection.bbox.clip(image.shape[1], image.shape[0])
 
         # 2. convert float coords to int for array slicing
@@ -189,7 +200,8 @@ class WCHExtractor:
             ]
         )
 
-        # 10. L2 normalize
+        #cos(θ) = (A · B) / (|A| × |B|)
+        # 10. L2 normalize so vector_length=
         norm = np.linalg.norm(wch)
         if norm > 1e-10:
             wch = wch / norm
@@ -198,6 +210,9 @@ class WCHExtractor:
             # Dividing by 1e-10 would produce ~1e10-scale values and break
             # cosine similarity downstream; zeros are safer (no match).
             wch = np.zeros_like(wch)
+
+        # [  upper_H(16)  |  upper_S(16)  |  upper_V(16)  |  lower_H(16)  |  lower_S(16)  |  lower_V(16)  ]
+        # ×0.6                                               ×0.4
 
         return wch.astype(np.float64)
 
@@ -213,6 +228,7 @@ class WCHExtractor:
         """
         # H channel: range [0, 180) in OpenCV (H (Hue): The actual color type)
         h_hist = np.histogram(
+            #region shape (H, W)
             region[
                 :, :, 0
             ].ravel(),  # .ravel() flattens the 2D channel into 1D array for histogram computation
@@ -234,6 +250,7 @@ class WCHExtractor:
             range=(0, 256),
         )[0].astype(np.float64)
 
+        # return 48-dim vector
         return np.concatenate([h_hist, s_hist, v_hist])
 
     @staticmethod

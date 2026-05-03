@@ -54,12 +54,13 @@ class TrackAssociator:
         cost_matrix = np.zeros((len(tracks), len(detections)), dtype=np.float64)
         for i, track in enumerate(tracks):
             for j, detection in enumerate(detections):
+                # cost is the distance between where the Kalman says this track should be now, and where the new detection actually is.
                 cost_matrix[i, j] = np.linalg.norm(
-                    track.predicted_position - detection.position # cost is the distance between where the Kalman says this track should be now, and where the new detection actually is.
+                    track.predicted_position - detection.position
                 )
-        
 
         # Solve assignment problem (Hungarian algorithm)
+        # tracks, detections
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
         # Filter matches by distance threshold
@@ -68,7 +69,7 @@ class TrackAssociator:
             if cost_matrix[r, c] <= self.config.max_distance:
                 matches.append((r, c))
 
-        # Collect unmatched indices
+        # collect which track and detection indices were successfully matched
         matched_track_indices = set()
         for track_idx, _ in matches:
             matched_track_indices.add(track_idx)
@@ -77,11 +78,13 @@ class TrackAssociator:
         for _, det_idx in matches:
             matched_det_indices.add(det_idx)
 
+        # tracks not in any match — will coast this frame
         unmatched_tracks = []
         for i in range(len(tracks)):
             if i not in matched_track_indices:
                 unmatched_tracks.append(i)
-
+        
+        # detections not in any match — will create a new TENTATIVE track
         unmatched_dets = []
         for i in range(len(detections)):
             if i not in matched_det_indices:

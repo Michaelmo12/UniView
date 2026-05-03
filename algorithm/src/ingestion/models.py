@@ -1,12 +1,12 @@
 """
 Ingestion Stage Data Models
 
-Defines the data structures produced by the TCP receiver and used by downstream stages.
+Defines the data structures produced by the ENet receiver and used by downstream pipeline stages.
 
 Key Types:
-- CameraCalibration: Intrinsic (K) and extrinsic (R, t) camera parameters
-- DroneFrame: Single frame from one drone with calibration
-- SynchronizedFrameSet: Frames from all drones at the same timestamp
+- CameraCalibration: Intrinsic (K) and extrinsic (R, t) camera parameters per frame
+- DroneFrame: Single decoded frame from one drone with its calibration
+- SynchronizedFrameSet: Frames from all expected drones at the same frame number
 """
 
 from dataclasses import dataclass
@@ -116,16 +116,11 @@ class DroneFrame:
     - Metadata (for synchronization and debugging)
 
     Attributes:
-        drone_id: Which drone this frame came from (1-8)
-        frame_num: Frame sequence number (0-999 in MATRIX dataset)
-        timestamp: When the frame was captured (seconds since epoch)
-        frame: BGR image as numpy array, shape (H, W, 3).
-               May be None when jpeg_bytes is set — call decode_frame() first.
-        calibration: Camera parameters for this frame
-        jpeg_bytes: Raw JPEG bytes (optional). When set, frame may be None until
-                    decode_frame() is called. This enables lazy decoding: ENet
-                    receiver threads store raw bytes, decode happens in the pipeline
-                    thread to avoid OpenCV thread-pool contention.
+        drone_id: Which drone this frame came from (1–8)
+        frame_num: Frame sequence number (0–999 in MATRIX dataset)
+        timestamp: When the frame was captured (seconds since Unix epoch)
+        frame: BGR image as numpy array, shape (H, W, 3), dtype uint8
+        calibration: Camera parameters for this frame (K, R, t, dist)
     """
 
     drone_id: int
@@ -135,10 +130,10 @@ class DroneFrame:
     calibration: CameraCalibration  # K, R, t, dist for this frame
 
     def __post_init__(self):
-        assert 1 <= self.drone_id <= 8, f"drone_id must be 1-8, got {self.drone_id}"
+        assert 1 <= self.drone_id <= 8, f"drone_id must be 1–8, got {self.drone_id}"
         assert (
             len(self.frame.shape) == 3
-        ), f"frame must be 3D (H,W,C), got {self.frame.shape}"
+        ), f"frame must be 3D (H, W, C), got {self.frame.shape}"
         assert (
             self.frame.shape[2] == 3
         ), f"frame must have 3 channels, got {self.frame.shape[2]}"
@@ -158,25 +153,28 @@ class SynchronizedFrameSet:
     A set of frames from multiple drones at approximately the same timestamp.
 
     The pipeline processes frames in synchronized sets:
-    1. TCP receivers collect frames from all 8 drones
-    2. Synchronizer groups frames by timestamp (within tolerance)
-    3. Each synchronized set is processed as a unit
+    1. ENet receiver collects frames from all drones
+    2. SyncBuffer groups frames by frame_num — outputs when all arrive or on timeout
+    3. Each synchronized set is processed as a unit through all pipeline stages
 
-    This enables cross-camera matching - we can only match detections
-    across cameras if they're from the same moment in time.
+    This enables cross-camera matching — we can only match detections
+    across cameras if they are from the same frame number.
 
     Attributes:
         frame_num: The frame number this set represents
-        timestamp: Reference timestamp for synchronization
+        timestamp: Reference timestamp (seconds since Unix epoch)
         frames: Dict mapping drone_id → DroneFrame
-        num_drones_expected: How many drones we expect (default 8)
+        num_drones_expected: How many drones we expect frames from
+        expected_drone_ids: Explicit list of expected drone IDs (e.g. [3,4,6,7])
     """
 
     frame_num: int  # Which frame number (0-999)
     timestamp: float  # Reference timestamp
     frames: dict[int, DroneFrame]  # {drone_id: DroneFrame}
-    num_drones_expected: int = 8  # legacy: total count (used by scripts)
-    expected_drone_ids: list = None  # explicit IDs (e.g. [3,4,6,7]); overrides num_drones_expected
+    num_drones_expected: int = 8  # how many drones we expect frames from
+    expected_drone_ids: list = (
+        None  # explicit IDs (e.g. [3,4,6,7]); overrides num_drones_expected
+    )
 
     def __post_init__(self):
         if self.expected_drone_ids is not None:
@@ -190,12 +188,14 @@ class SynchronizedFrameSet:
 
     @property
     def is_complete(self) -> bool:
-        """checks if there are frames from all expected drones in this set"""
+        """True if frames from all expected drones are present in this set."""
         return set(self.frames.keys()) >= set(self.expected_drone_ids)
 
     @property
     def missing_drones(self) -> list[int]:
+        # number of present frames
         present = set(self.frames.keys())
+        # expected (-) present frames
         return sorted(set(self.expected_drone_ids) - present)
 
     @property
@@ -206,8 +206,13 @@ class SynchronizedFrameSet:
         return self.frames.get(drone_id)
 
     def get_all_frames(self) -> list[DroneFrame]:
-        return [self.frames[d] for d in self.drone_ids]
+        result = []
+        for d in self.drone_ids:
+            result.append(self.frames[d])
+        return result
 
     def get_all_calibrations(self) -> dict[int, CameraCalibration]:
-        return {d: f.calibration for d, f in self.frames.items()}
-
+        result = {}
+        for d, f in self.frames.items():
+            result[d] = f.calibration
+        return result

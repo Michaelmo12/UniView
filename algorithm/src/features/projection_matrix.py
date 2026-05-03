@@ -49,6 +49,7 @@ class ProjectionMatrixCalculator:
         """
         result = {}
 
+        # for each drone compute P matrix
         for drone_id, calib in calibrations.items():
 
             projection_matrix = self.compute(calib)

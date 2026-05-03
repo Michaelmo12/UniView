@@ -36,6 +36,8 @@ class PersonKalmanFilter:
         self.kf = KalmanFilter(dim_x=6, dim_z=3)
 
         # State transition matrix F: constant-velocity model (dt=1)
+        # Position [x, y, z] — where the person is
+        #Velocity [vx, vy, vz] — how fast they're moving per frame
         self.kf.F = np.array(
             [
                 [1, 0, 0, 1, 0, 0],
@@ -47,8 +49,10 @@ class PersonKalmanFilter:
             ],
             dtype=np.float64,
         )
+        # x_new = F @ x_old
 
         # Measurement function H: observe only position [x, y, z]
+        # what we want to receive from the triangulation
         self.kf.H = np.array(
             [
                 [1, 0, 0, 0, 0, 0],
@@ -62,14 +66,18 @@ class PersonKalmanFilter:
         self.kf.x = np.zeros((6, 1), dtype=np.float64)
         self.kf.x[:3] = initial_position.reshape(3, 1)
 
-        # Measurement noise R: triangulation variance - how much does this measurement spread around the true value. (~0.5m)
+        # measurement noise: High R = triangulation is noisy, Kalman relies more on its own prediction. Low R = trust the measurement more.
         self.kf.R = np.eye(3, dtype=np.float64) * config.measurement_noise
 
-        # Process noise Q: low = assumes smooth motion; velocity noise much smaller
+        # process noise: High Q = person moves unpredictably, Kalman adapts faster to new measurements. Low Q = assumes smooth motion, filter is more stable but slower to react to sudden direction changes.
+        
         self.kf.Q = np.eye(6, dtype=np.float64) * config.process_noise
         self.kf.Q[3:, 3:] *= 0.01
 
-        # Initial covariance P: moderate position uncertainty, very high velocity uncertainty
+        # מטריצת האי-ודאות
+        # confident of where we last were 3d place [x,y,z],
+        # but we dont yet know the direction so we we put high initial "weight"
+        # current uncertainty (high velocity uncertainty at start, shrinks as we see more frames)
         self.kf.P = np.eye(6, dtype=np.float64)
         self.kf.P[
             0:3, 0:3
@@ -80,13 +88,12 @@ class PersonKalmanFilter:
 
     def predict(self) -> None:
         """Predict the state forward one time step."""
-        self.kf.predict() #   x = F @ x,  P = F @ P @ F.T + Q
+        self.kf.predict() 
+        # x = F @ x : new position = old position + velocity
 
     def update(self, measurement: np.ndarray) -> None:
         """
         Update the filter with a new measurement.
-
-        Args:
             measurement: Shape (3,) observed [x, y, z] position [meters].
         """
         self.kf.update(measurement.reshape(3, 1)) # Kalman gain, residual, posterior

@@ -25,6 +25,18 @@ from pathlib import Path
 os.environ.setdefault("OMP_NUM_THREADS", "4")
 os.environ.setdefault("OPENVINO_CPU_THREADS_NUM", "4")
 
+# Raise process priority so Windows foreground-boost (e.g. Firefox full-screen)
+# does not starve YOLO/OpenVINO when the algorithm runs on a single monitor.
+# ABOVE_NORMAL is safer than HIGH — HIGH can cause audio glitches / input lag
+# if OpenVINO threads spike during inference.
+try:
+    import psutil
+    p = psutil.Process(os.getpid())
+    p.nice(psutil.HIGH_PRIORITY_CLASS)
+    print(f"[priority] algorithm process PID {p.pid} set to {p.nice()}")
+except Exception as e:
+    print(f"[priority] failed to set priority: {e}")
+
 import cv2
 cv2.setNumThreads(1)
 

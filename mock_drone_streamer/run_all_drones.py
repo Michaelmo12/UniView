@@ -18,6 +18,8 @@ import sys
 import time
 from pathlib import Path
 
+import psutil
+
 BASE_PORT = 16000
 NUM_DRONES = 8
 
@@ -62,6 +64,13 @@ def _parse_args() -> argparse.Namespace:
         "--no-loop",
         action="store_true",
         help="Stop each drone when its dataset frames are exhausted.",
+    )
+    parser.add_argument(
+        "--max-frames",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Stop each drone after sending N frames (0 = unlimited).",
     )
     parser.add_argument(
         "--drones",
@@ -111,12 +120,20 @@ def main() -> None:
         ]
         if args.no_loop:
             cmd.append("--no-loop")
+        if args.max_frames > 0:
+            cmd.extend(["--max-frames", str(args.max_frames)])
 
         env = os.environ.copy()
         env["PYTHONPATH"] = str(script_dir.parent)
         proc = subprocess.Popen(cmd, env=env)
         processes.append((drone_id, proc))
         print(f"Launched drone {drone_id} on port {port}  (PID {proc.pid})")
+
+        # Boost priority so Windows foreground boost does not stall frame sending
+        try:
+            psutil.Process(proc.pid).nice(psutil.ABOVE_NORMAL_PRIORITY_CLASS)
+        except Exception:
+            pass
 
     # Synchronized start: wait 1 second after all processes are spawned so all
     # 8 drones initialize at roughly the same time before any begin streaming.

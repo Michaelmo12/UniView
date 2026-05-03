@@ -13,14 +13,6 @@ Single-view persons (is_triangulated=False or position=None) are passed through
 without Kalman tracking or global ID assignment.
 """
 
-import sys
-from pathlib import Path
-
-# Add project root to path for algorithm imports when run as script
-_project_root = Path(__file__).parent.parent.parent
-if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 import logging
 
 import numpy as np
@@ -33,7 +25,6 @@ from src.tracking.models import TrackState, TrackedPerson, TrackingResult
 from src.tracking.track_associator import TrackAssociator
 
 logger = logging.getLogger(__name__)
-
 
 class Track:
     """Internal track representation (private to tracker.py)."""
@@ -138,6 +129,7 @@ class PersonTracker:
         for track in self.tracks:
             if not track.is_deleted():
                 active_tracks.append(track)
+                
         # This is where the Hungarian algorithm finds the best matches between predicted track positions and new detections, based on the cost matrix of distances. and thresholding by max_distance.
         matches, unmatched_tracks, unmatched_dets = self.associator.associate(
             active_tracks, triangulated
@@ -222,25 +214,3 @@ class PersonTracker:
         self.tracks = []
         self.id_manager.reset()
         self.frame_count = 0
-
-# ================= HELPERS FOR SYNTHETIC VALIDATION IN __main__ =================
-def _make_person(person_id: int, x: float, y: float, z: float) -> Person3D:
-    """Helper for __main__ validation."""
-    return Person3D(
-        person_id=person_id,
-        position=np.array([x, y, z], dtype=np.float64),
-        num_views=2,
-        source_detections=[(0, person_id), (1, person_id)],
-        is_triangulated=True,
-    )
-
-
-def _make_frame(frame_num: int, persons: list[Person3D]) -> ReconstructionResult:
-    """Helper for __main__ validation."""
-    return ReconstructionResult(
-        frame_num=frame_num,
-        persons=persons,
-        num_triangulated_points=len(persons),
-        num_rejected_points=0,
-    )
-

@@ -8,7 +8,7 @@ completely isolating its CPU usage from OpenVINO's internal OpenMP thread pool.
 Why a separate process?
 -----------------------
 OpenVINO uses OpenMP internally and tries to claim all available CPU cores.
-Any background thread in the *same* process (including cv2.imdecode threads)
+Any background thread in the *same* process
 competes with OpenVINO's thread pool — the OS scheduler gives them equal
 priority, so OpenVINO gets preempted and runs slower.
 
@@ -22,35 +22,29 @@ _receiver_worker(...)
     Module-level function (must be at module level for multiprocessing pickling).
     Runs inside the child process. Creates a SyncedENetReceiver and forwards
     SynchronizedFrameSets to the parent via a multiprocessing.Queue.
-    Also writes per-drone connection flags into a shared multiprocessing.Array
-    so the parent can check is_connected() without IPC overhead.
-
-ConnectionProxy
-    Exposes the same is_connected() / is_running() API as DroneState,
-    but reads from the shared multiprocessing.Array instead of the real
-    DroneState (which lives in the child process).
 
 ReceiverProcess
     Manages the child process lifecycle: start(), stop(), is_running().
-    Owns the multiprocessing.Queue, stop_event, and connected_flags array.
+    Owns the multiprocessing.Queue and stop_event.
 
 create_receiver_process(drone_ids, output_queue, ...)
-    Factory. Returns (ReceiverProcess, dict[int, ConnectionProxy]).
-    The dict has the same shape as the old receivers dict so all callers
-    (wait_for_connections, stats loops) work without changes.
+    Factory. Returns a ReceiverProcess configured from settings.
 """
 
-from __future__ import annotations
-
+# Standard logging library — lets us print messages at severity levels (DEBUG, INFO, WARNING, ERROR)
 import logging
-import multiprocessing
-import multiprocessing.synchronize
-import os
-import queue
-import threading
-import time
-from dataclasses import dataclass
 
+# Standard library for creating and managing separate OS processes and cross-process queues
+import multiprocessing
+
+# Imported explicitly so multiprocessing.synchronize.Event can be used as a type hint
+import multiprocessing.synchronize
+
+# Standard thread-safe FIFO queue — used for local_queue inside the child process (thread-to-thread)
+import queue
+
+
+# Module-level logger — identifies log messages as coming from this file
 logger = logging.getLogger(__name__)
 
 
@@ -58,37 +52,49 @@ logger = logging.getLogger(__name__)
 # Worker function — runs in the child process
 # ---------------------------------------------------------------------------
 
+
 def _receiver_worker(
-    drone_ids: list[int],
-    mp_queue: multiprocessing.Queue,
-    connected_flags: multiprocessing.Array,
-    host: str,
-    base_port: int,
-    sync_timeout: float,
-    max_buffer_size: int,
-    stop_event: multiprocessing.synchronize.Event,
+    drone_ids: list[int],  # Which drones to listen to (e.g. [3,4,6,7])
+    mp_queue: multiprocessing.Queue,  # Cross-process pipe — child puts frames here, parent reads them
+    host: str,  # IP address to bind ENet server on
+    base_port: int,  # Port base (drone N listens on base_port + N - 1)
+    sync_timeout: float,  # How long to wait for all drones to have a frame before giving up on sync
+    max_buffer_size: int,  # Max frames to buffer per drone before dropping old ones
+    stop_event: multiprocessing.synchronize.Event,  # Flag the parent sets to tell the child to shut down
 ) -> None:
     """
     Entry point for the child process.
 
     Creates a SyncedENetReceiver with a local threading.Queue, then
     forwards SynchronizedFrameSets into mp_queue (multiprocessing.Queue).
-    Keeps connected_flags up to date so the parent can check is_connected().
     Exits when stop_event is set.
     """
-    # Suppress noisy logging inside the child unless DEBUG is requested
+    # Configure logging for this child process — fresh process has no logging setup
     logging.basicConfig(
         level=logging.WARNING,
         format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
     )
 
-    # Import here so the import only happens inside the child process
-    from src.config.settings import settings
+    # Raise child process priority so ENet packets are not dropped under CPU load
+    try:
+        import os
+        import psutil
+
+        # On Windows, tells the OS scheduler to give this process higher CPU priority
+        p = psutil.Process(os.getpid())
+        p.nice(psutil.HIGH_PRIORITY_CLASS)
+        print(f"[priority] receiver child process PID {p.pid} set to {p.nice()}")
+    except Exception as e:
+        # Priority is best-effort — child still runs if psutil is missing or OS rejects it
+        print(f"[priority] failed to set priority: {e}")
+
+    # Import inside child process — on Windows, spawn creates a fresh interpreter so imports must happen here
     from src.ingestion.synced_receiver import SyncedENetReceiver
 
-    # Local threading.Queue: SyncedENetReceiver → this forward loop
-    local_queue: queue.Queue = queue.Queue(maxsize=4)
+    # Thread-safe queue local to the child — SyncedENetReceiver writes here, forward loop reads from here
+    local_queue = queue.Queue(maxsize=4)
 
+    # Create the ENet receiver with the local queue — it will put SynchronizedFrameSets into local_queue
     receiver = SyncedENetReceiver(
         drone_ids=drone_ids,
         output_queue=local_queue,
@@ -97,92 +103,42 @@ def _receiver_worker(
         sync_timeout=sync_timeout,
         max_buffer_size=max_buffer_size,
     )
+    # Start the background thread that runs the ENet receive loop
     receiver.start()
 
-    drone_index = {d: i for i, d in enumerate(drone_ids)}
-
-    def _sync_flags() -> None:
-        """Copy DroneState.connected into the shared flags array."""
-        for drone_id, state in receiver.drone_states.items():
-            idx = drone_index.get(drone_id)
-            if idx is not None:
-                connected_flags[idx] = int(state.is_connected())
-
+    # Run until the parent sets stop_event
     try:
         while not stop_event.is_set():
-            # Sync connection flags to shared memory periodically
-            _sync_flags()
-
             try:
+                # Block up to 0.5s waiting for a SynchronizedFrameSet from SyncedENetReceiver
                 sync_set = local_queue.get(timeout=0.5)
             except queue.Empty:
+                # Nothing arrived in 0.5s — loop back and check stop_event again
                 continue
 
-            # Forward to parent — drop oldest if full
+            # Try to forward the frame set to the parent's cross-process queue
             try:
+                # Non-blocking put — raises Full if mp_queue has no space
                 mp_queue.put_nowait(sync_set)
             except Exception:
                 try:
-                    mp_queue.get_nowait()   # drop oldest
+                    # mp_queue is full — remove the oldest frame set to make room
+                    mp_queue.get_nowait()
+                    # Now put the new frame set in
                     mp_queue.put_nowait(sync_set)
                 except Exception:
+                    # Both attempts failed — discard this frame set silently
                     pass
 
     finally:
-        _sync_flags()
+        # Stop the ENet receiver thread cleanly, wait up to 5 seconds
         receiver.stop(timeout=5.0)
-
-
-# ---------------------------------------------------------------------------
-# ConnectionProxy — parent-side view of a drone's connection state
-# ---------------------------------------------------------------------------
-
-class ConnectionProxy:
-    """
-    Per-drone connection state readable from the parent process.
-
-    The real DroneState lives inside the child process and cannot be shared
-    directly. This class reads from a multiprocessing.Array of bytes (one
-    byte per drone) that the child process updates on CONNECT/DISCONNECT.
-
-    Exposes the same public API as DroneState / ENetReceiver so that
-    wait_for_connections() and any stats loops work without changes.
-    """
-
-    def __init__(
-        self,
-        drone_id: int,
-        connected_flags: multiprocessing.Array,
-        index: int,
-    ) -> None:
-        self.drone_id        = drone_id
-        self._flags          = connected_flags
-        self._index          = index
-        # These counters are not shared — parent doesn't need per-drone counts
-        self.frames_received = 0
-        self.bytes_received  = 0
-        self.errors          = 0
-
-    def is_connected(self) -> bool:
-        """True while the child process reports the drone as connected."""
-        return bool(self._flags[self._index])
-
-    def is_running(self) -> bool:
-        """Always True — proxy is alive as long as ReceiverProcess runs."""
-        return True
-
-    def start(self) -> None:
-        """No-op. ReceiverProcess.start() manages everything."""
-        pass
-
-    def stop(self, timeout: float = 5.0) -> None:
-        """No-op. ReceiverProcess.stop() manages everything."""
-        pass
 
 
 # ---------------------------------------------------------------------------
 # ReceiverProcess — manages the child process lifecycle
 # ---------------------------------------------------------------------------
+
 
 class ReceiverProcess:
     """
@@ -194,7 +150,7 @@ class ReceiverProcess:
     Usage::
 
         mp_queue = multiprocessing.Queue(maxsize=2)
-        proc, proxies = create_receiver_process(
+        proc = create_receiver_process(
             drone_ids=[3, 4, 6, 7],
             output_queue=mp_queue,
         )
@@ -212,25 +168,19 @@ class ReceiverProcess:
         sync_timeout: float,
         max_buffer_size: int,
     ) -> None:
-        self._drone_ids      = drone_ids
-        self._output_queue   = output_queue
-        self._host           = host
-        self._base_port      = base_port
-        self._sync_timeout   = sync_timeout
+        # Store all parameters — passed to _receiver_worker when child process spawns
+        self._drone_ids = drone_ids
+        self._output_queue = output_queue
+        self._host = host
+        self._base_port = base_port
+        self._sync_timeout = sync_timeout
         self._max_buffer_size = max_buffer_size
 
+        # Cross-process shutdown signal — parent calls .set(), child checks .is_set() in its loop
         self._stop_event = multiprocessing.Event()
 
-        # One byte per drone: 0 = disconnected, 1 = connected
-        self._connected_flags = multiprocessing.Array('b', len(drone_ids))
-
+        # Holds the child process object after start() is called — None until then
         self._process: multiprocessing.Process | None = None
-
-        # ConnectionProxy objects — one per drone, same API as DroneState
-        self.drone_states: dict[int, ConnectionProxy] = {
-            d: ConnectionProxy(d, self._connected_flags, i)
-            for i, d in enumerate(drone_ids)
-        }
 
     # ------------------------------------------------------------------
     # Public API
@@ -242,6 +192,7 @@ class ReceiverProcess:
             logger.warning("ReceiverProcess already running")
             return
 
+        # sets flag to False
         self._stop_event.clear()
 
         self._process = multiprocessing.Process(
@@ -249,7 +200,6 @@ class ReceiverProcess:
             args=(
                 self._drone_ids,
                 self._output_queue,
-                self._connected_flags,
                 self._host,
                 self._base_port,
                 self._sync_timeout,
@@ -259,6 +209,7 @@ class ReceiverProcess:
             daemon=True,
             name="ENetReceiverProcess",
         )
+        # spawns the OS process
         self._process.start()
         logger.info(
             "ReceiverProcess started (PID %d) for drones %s",
@@ -268,20 +219,26 @@ class ReceiverProcess:
 
     def stop(self, timeout: float = 10.0) -> None:
         """Signal the child process to stop and wait for it to exit."""
+        # sets flag to True
         self._stop_event.set()
 
+        # if stop() is called before start(), nothing to do
         if self._process is None:
             return
 
         if self._process.is_alive():
+            # blocks the parent for up to 10 seconds, waiting for the child to exit cleanly on its own.
             self._process.join(timeout=timeout)
 
+        # If after 10 seconds the child is still alive — it didn't stop cleanly. terminate() sends force kill.
         if self._process.is_alive():
             logger.warning(
                 "ReceiverProcess (PID %d) did not stop in %.1fs — terminating",
-                self._process.pid, timeout,
+                self._process.pid,
+                timeout,
             )
             self._process.terminate()
+            # waits up to 3 more seconds for it to die
             self._process.join(timeout=3.0)
 
         logger.info("ReceiverProcess stopped")
@@ -295,23 +252,22 @@ class ReceiverProcess:
 # Factory function
 # ---------------------------------------------------------------------------
 
+
 def create_receiver_process(
     drone_ids: list[int],
     output_queue: multiprocessing.Queue,
     host: str = "127.0.0.1",
     base_port: int = 16000,
-) -> tuple[ReceiverProcess, dict[int, ConnectionProxy]]:
+) -> ReceiverProcess:
     """
     Create a ReceiverProcess configured from settings.
 
     Returns:
-        (proc, drone_proxies_dict) where drone_proxies_dict maps
-        drone_id → ConnectionProxy and has the same public API as the old
-        receivers dict (is_connected(), etc.).
+        ReceiverProcess ready to start.
     """
     from src.config.settings import settings
 
-    proc = ReceiverProcess(
+    return ReceiverProcess(
         drone_ids=drone_ids,
         output_queue=output_queue,
         host=host,
@@ -319,4 +275,3 @@ def create_receiver_process(
         sync_timeout=settings.ingestion.sync_timeout,
         max_buffer_size=settings.ingestion.max_buffer_size,
     )
-    return proc, proc.drone_states

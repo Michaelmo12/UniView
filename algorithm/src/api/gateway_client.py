@@ -1,9 +1,5 @@
 """
 Gateway HTTP Client
-
-Singleton httpx.AsyncClient for POSTing StreamPayload dicts to the gateway.
-Initialized in main.py lifespan before the pipeline task starts.
-Fire-and-forget on error — pipeline never blocks on a failed POST.
 """
 import logging
 

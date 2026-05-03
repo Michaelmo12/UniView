@@ -11,21 +11,12 @@ Key Class:
 - SceneReconstructor: Orchestrator combining Triangulator and PersonClusterer
 """
 
-import sys
-from pathlib import Path
-
-# Add project root to path for algorithm imports when run as script
-_project_root = Path(__file__).parent.parent.parent
-if str(_project_root) not in sys.path:
-    sys.path.insert(0, str(_project_root))
-
 import logging
-import numpy as np
 
-from src.config.settings import ReconstructionConfig, settings
-from src.fusion.models import FusionResult, MatchGroup
-from src.detection.models import DetectionSet, Detection, BoundingBox
-from src.ingestion.models import SynchronizedFrameSet, DroneFrame, CameraCalibration
+from src.config.settings import ReconstructionConfig
+from src.fusion.models import FusionResult
+from src.detection.models import DetectionSet
+from src.ingestion.models import SynchronizedFrameSet
 from src.reconstruction.models import ReconstructionResult
 from src.reconstruction.triangulator import Triangulator
 from src.reconstruction.clusterer import PersonClusterer
@@ -81,28 +72,34 @@ class SceneReconstructor:
 
         # Step 1: Triangulate match groups — collect all raw pairwise Point3Ds
         triangulated_points = []
+        # how many groups were fully rejected (no valid Point3Ds)
         rejected_count = 0
+        # detections from groups where triangulation completely failed — treated as single-view
         fallback_detections: list[tuple[int, int]] = []
 
+        # for each match group — triangulate and collect Point3Ds or mark as fallback
         for group in fusion_result.match_groups:
             raw_points, used_fallback = self.triangulator.triangulate_match_group_robust(
                 group, detection_sets, sync_set
             )
 
+            # add all valid Point3Ds from this group
             if raw_points:
                 triangulated_points.extend(raw_points)
+            # no valid points
             else:
                 rejected_count += 1
-                if used_fallback:
-                    # Robust pruning failed — treat all detections in this group as unmatched
-                    for det_id in group.detections:
-                        fallback_detections.append(det_id)
+                for det_id in group.detections:
+                    fallback_detections.append(det_id)
 
         # Step 2: Identify unmatched detections
+        # a list of (drone_id, local_id) tuples for every detection that has no valid 3D position
+        
         # Build set of all (drone_id, local_id) that appear in match groups
         matched_detections = set()
         for group in fusion_result.match_groups:
             matched_detections.update(group.detections)
+            
         # Detections from failed robust groups are also treated as unmatched
         for det_id in fallback_detections:
             matched_detections.discard(det_id)
