@@ -3,6 +3,7 @@
 This document explains exactly how the streamer and receiver work, file by file, line by line where it matters.
 
 ---
+# best combination cameras 3,4,6,7
 
 ## Big Picture
 
