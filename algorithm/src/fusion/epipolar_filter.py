@@ -83,23 +83,6 @@ def filter_by_epipolar_constraint(
     features2: PersonFeatures,
     threshold: float,
 ) -> tuple[bool, float]:
-    """
-    Filter a candidate match using epipolar constraint.
-
-    Computes the fundamental matrix from the projection matrices stored
-    in the features, then checks if the match satisfies the epipolar
-    constraint within the specified threshold.
-
-    Args:
-        features1: Features from camera 1
-        features2: Features from camera 2
-        threshold: Maximum epipolar distance (pixels) for valid match
-
-    Returns:
-        Tuple of (is_valid, epipolar_distance)
-        - is_valid: True if distance <= threshold
-        - epipolar_distance: Computed distance in pixels
-    """
     F = compute_fundamental_matrix(features1.projection_matrix, features2.projection_matrix)
 
     distance = compute_epipolar_distance(features1, features2, F)
@@ -114,23 +97,6 @@ def filter_matches_batch(
     features_list: list[PersonFeatures],
     threshold: float,
 ) -> list[CrossCameraMatch]:
-    """
-    Filter all candidate matches for a set of detections using epipolar constraint.
-
-    For each pair of detections from different cameras, compute the epipolar
-    distance and create a CrossCameraMatch if valid.
-
-    This is the geometric filtering stage that runs before appearance verification.
-    It typically reduces candidate matches by 90%+ by eliminating geometrically
-    impossible correspondences.
-
-    Args:
-        features_list: List of PersonFeatures from all cameras
-        threshold: Maximum epipolar distance for valid match
-
-    Returns:
-        List of CrossCameraMatch instances (only geometrically valid matches)
-    """
     matches = []
 
     # for every pair once comput filter

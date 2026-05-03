@@ -219,13 +219,25 @@ function DroneCell({ id, payload, sseStatus }: DroneCellProps) {
 // matching DroneCell.  Cells whose drone hasn't sent anything yet receive null
 // and render the "NO SIGNAL" state.
 function Home() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const [toast, setToast] = useState<string | null>(null);
+
+  // Show welcome toast only once per login session
+  useEffect(() => {
+    if (user?.full_name && !sessionStorage.getItem("welcome_shown")) {
+      sessionStorage.setItem("welcome_shown", "1");
+      setToast(`Welcome back, ${user.full_name}`);
+      const t = setTimeout(() => setToast(null), 4000);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   // frames: Map<droneId, StreamPayload> — one entry per drone, updates on every SSE event
   const { frames, status } = useSSEStream(token);
 
   return (
     <div className="uniview-dashboard">
+      {toast && <div className="uniview-toast">{toast}</div>}
       <main className="uniview-grid-wrapper">
         {/* 2×2 grid — one cell per drone */}
         <div className="uniview-grid">
