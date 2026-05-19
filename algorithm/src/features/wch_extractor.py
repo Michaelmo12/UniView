@@ -9,8 +9,8 @@ import logging
 import time
 from typing import Optional
 
-import cv2  # For image processing (resize, color conversion)
-import numpy as np  # For numerical operations (histograms, normalization)
+import cv2  # for image processing (resize, color conversion)
+import numpy as np  # for numerical operations (histograms, normalization)
 
 from src.detection.models import Detection, DetectionSet
 from src.ingestion.models import DroneFrame

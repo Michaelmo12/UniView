@@ -1,15 +1,26 @@
 """
-PersonKalmanFilter
+PersonKalmanFilter — whitebox implementation, no filterpy.
 
-Wraps filterpy.kalman.KalmanFilter for a 3D constant-velocity model.
-State vector: [x, y, z, vx, vy, vz]
-Measurement:  [x, y, z]
+Kalman filter equations (constant-velocity model, dt=1):
+
+  Predict:
+    x = F @ x              — project state forward one frame
+    P = F @ P @ F.T + Q    — project uncertainty forward
+
+  Update:
+    y = z - H @ x          — residual: difference between measurement and prediction
+    S = H @ P @ H.T + R    — innovation covariance (how uncertain is the residual)
+    K = P @ H.T @ inv(S)   — Kalman gain: how much to trust the measurement vs prediction
+    x = x + K @ y          — correct the state
+    P = (I - K @ H) @ P    — correct the uncertainty
+
+State vector x (6x1): [x, y, z, vx, vy, vz]
+Measurement z (3x1):  [x, y, z]
 """
 
 import logging
 
 import numpy as np
-from filterpy.kalman import KalmanFilter
 
 from src.config.settings import TrackingConfig
 
@@ -18,27 +29,18 @@ logger = logging.getLogger(__name__)
 
 class PersonKalmanFilter:
     """
-    Kalman filter for tracking a person's 3D position and velocity.
+    Whitebox Kalman filter for tracking a person's 3D position and velocity.
 
-    Uses a constant-velocity motion model with dt=1 (one frame per step).
-    State:       [x, y, z, vx, vy, vz]  (dim_x = 6)
-    Measurement: [x, y, z]              (dim_z = 3)
+    Constant-velocity motion model with dt=1 (one frame per step).
+    State:       [x, y, z, vx, vy, vz]  (6x1)
+    Measurement: [x, y, z]              (3x1)
     """
 
     def __init__(self, initial_position: np.ndarray, config: TrackingConfig) -> None:
-        """
-        Initialize the Kalman filter at a given 3D position.
-
-        Args:
-            initial_position: Shape (3,) initial [x, y, z] in world coordinates [meters].
-            config: TrackingConfig with process_noise and measurement_noise.
-        """
-        self.kf = KalmanFilter(dim_x=6, dim_z=3)
-
-        # State transition matrix F: constant-velocity model (dt=1)
-        # Position [x, y, z] — where the person is
-        #Velocity [vx, vy, vz] — how fast they're moving per frame
-        self.kf.F = np.array(
+        # F — state transition matrix: applies velocity to position each frame
+        # x_new = F @ x_old
+        # [x + vx, y + vy, z + vz, vx, vy, vz]
+        self.F = np.array(
             [
                 [1, 0, 0, 1, 0, 0],
                 [0, 1, 0, 0, 1, 0],
@@ -49,11 +51,10 @@ class PersonKalmanFilter:
             ],
             dtype=np.float64,
         )
-        # x_new = F @ x_old
 
-        # Measurement function H: observe only position [x, y, z]
-        # what we want to receive from the triangulation
-        self.kf.H = np.array(
+        # H — measurement matrix: extracts position [x, y, z] from full state [x,y,z,vx,vy,vz]
+        # z = H @ x
+        self.H = np.array(
             [
                 [1, 0, 0, 0, 0, 0],
                 [0, 1, 0, 0, 0, 0],
@@ -62,48 +63,83 @@ class PersonKalmanFilter:
             dtype=np.float64,
         )
 
-        # Initial state: position from detection, velocity zero
-        self.kf.x = np.zeros((6, 1), dtype=np.float64)
-        self.kf.x[:3] = initial_position.reshape(3, 1)
+        # R — measurement noise covariance (3x3): how much to trust the triangulated position
+        # high R = noisy triangulation, rely more on prediction
+        # low R  = trust the measurement more than the prediction
+        self.R = np.eye(3, dtype=np.float64) * config.measurement_noise
 
-        # measurement noise: High R = triangulation is noisy, Kalman relies more on its own prediction. Low R = trust the measurement more.
-        self.kf.R = np.eye(3, dtype=np.float64) * config.measurement_noise
+        # Q — process noise covariance (6x6): how much unpredictable movement to allow
+        # high Q = person moves erratically, filter adapts fast to new measurements
+        # low Q  = smooth motion assumed, filter is stable but slow to react to sudden changes
+        self.Q = np.eye(6, dtype=np.float64) * config.process_noise
+        # velocity components are less noisy than position — scale down their process noise
+        self.Q[3:, 3:] *= 0.01
 
-        # process noise: High Q = person moves unpredictably, Kalman adapts faster to new measurements. Low Q = assumes smooth motion, filter is more stable but slower to react to sudden direction changes.
-        
-        self.kf.Q = np.eye(6, dtype=np.float64) * config.process_noise
-        self.kf.Q[3:, 3:] *= 0.01
+        # P — state covariance (6x6): current uncertainty of the state estimate
+        # position uncertainty: moderate at start (1 m^2)
+        # velocity uncertainty: very high at start — we have no idea how fast they're moving
+        # LIKE F but for confidence of it
+        self.P = np.eye(6, dtype=np.float64)
+        self.P[0:3, 0:3] *= 1.0
+        self.P[3:6, 3:6] *= 1000.0
 
-        # מטריצת האי-ודאות
-        # confident of where we last were 3d place [x,y,z],
-        # but we dont yet know the direction so we we put high initial "weight"
-        # current uncertainty (high velocity uncertainty at start, shrinks as we see more frames)
-        self.kf.P = np.eye(6, dtype=np.float64)
-        self.kf.P[
-            0:3, 0:3
-        ] *= 1.0  # position uncertainty: 1m^2 (moderate initial uncertainty)
-        self.kf.P[
-            3:6, 3:6
-        ] *= 1000.0  # velocity uncertainty: very high (completely unknown initially)
+        # x — state vector (6x1): initial position from detection, velocity assumed zero
+        self.x = np.zeros((6, 1), dtype=np.float64)
+        self.x[:3] = initial_position.reshape(3, 1)
+
+        # identity matrix reused in the update step
+        self._I = np.eye(6, dtype=np.float64)
 
     def predict(self) -> None:
-        """Predict the state forward one time step."""
-        self.kf.predict() 
-        # x = F @ x : new position = old position + velocity
+        """
+        Predict step — project state and uncertainty forward one frame.
+
+          x_new = F @ x
+          כמה אני בטוח בוקטור המהירות אחרי חיזוי מגדיל את פ
+          P = F @ P @ F.T + Q
+        """
+        # project state forward: new position = old position + velocity
+        self.x = self.F @ self.x
+        # project uncertainty forward and add process noise
+        self.P = self.F @ self.P @ self.F.T + self.Q
 
     def update(self, measurement: np.ndarray) -> None:
         """
-        Update the filter with a new measurement.
-            measurement: Shape (3,) observed [x, y, z] position [meters].
+        Update step — correct the prediction with a new triangulated measurement.
+
+          y = z - H @ x          residual
+          S = H @ P @ H.T + R    innovation covariance
+          K = P @ H.T @ inv(S)   Kalman gain
+          x = x + K @ y          corrected state
+          P = (I - K @ H) @ P    corrected uncertainty
+
+        Args:
+            measurement: Shape (3,) observed [x, y, z] in world coordinates [meters].
         """
-        self.kf.update(measurement.reshape(3, 1)) # Kalman gain, residual, posterior
+        z = measurement.reshape(3, 1)
+
+        # איפה בן אדם נמצא פחות איפה המודל חושב שהוא נמצא מחשב מחשב פער
+        y = z - self.H @ self.x
+
+        # who do we belive more the camera R or P our guess
+        S = self.H @ self.P @ self.H.T + self.R
+
+        # K — Kalman gain: how much weight to give the measurement vs the prediction
+        # high K = trust measurement more; low K = trust prediction more
+        K = self.P @ self.H.T @ np.linalg.inv(S)
+
+        # correct the state estimate using the residual weighted by K
+        self.x = self.x + K @ y
+
+        # correct the uncertainty — shrinks because we got new information
+        self.P = (self._I - K @ self.H) @ self.P
 
     @property
     def predicted_position(self) -> np.ndarray:
-        """Get the current predicted position as shape (3,)."""
-        return self.kf.x[:3].flatten() # first 3 elements of the 6-state vector
+        """Current position estimate — first 3 elements of the state vector."""
+        return self.x[:3].flatten()
 
     @property
     def velocity(self) -> np.ndarray:
-        """Get the current estimated velocity as shape (3,)."""
-        return self.kf.x[3:].flatten() # last 3 elements
+        """Current velocity estimate — last 3 elements of the state vector."""
+        return self.x[3:].flatten()

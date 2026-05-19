@@ -18,6 +18,7 @@ interface AlgorithmStatus {
   avg_pipeline_latency_ms: number;
   avg_confidence: number;
   stage_timings_ms: StageTimings;
+  pipeline_online: boolean;
 }
 
 interface UseAlgorithmStatsResult {

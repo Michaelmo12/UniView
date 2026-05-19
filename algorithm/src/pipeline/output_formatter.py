@@ -101,20 +101,18 @@ def build_payloads(
             # look up the full Detection object by (drone_id, local_id)
             det = detection_lookup.get((drone_id, local_id))
 
-            # det found — extract bbox coords and confidence (convert numpy types to plain float)
-            if det is not None:
-                x1, y1, x2, y2 = (
-                    float(det.bbox.x1),
-                    float(det.bbox.y1),
-                    float(det.bbox.x2),
-                    float(det.bbox.y2),
-                )
-                conf = float(det.confidence)
-                confidences.append(conf)
-            # det missing (track is coasting, no detection this frame) — zero out bbox
-            else:
-                x1 = y1 = x2 = y2 = 0.0
-                conf = 0.0
+            # det missing — track is coasting, no detection this frame, skip it
+            if det is None:
+                continue
+
+            x1, y1, x2, y2 = (
+                float(det.bbox.x1),
+                float(det.bbox.y1),
+                float(det.bbox.x2),
+                float(det.bbox.y2),
+            )
+            conf = float(det.confidence)
+            confidences.append(conf)
 
             tracks.append({
                 "global_id": int(p.global_id),
@@ -156,6 +154,7 @@ def build_payloads(
                 "state": "SINGLE_VIEW",
                 "frames_tracked": 0,
             })
+
 
         avg_confidence = float(sum(confidences) / len(confidences)) if confidences else 0.0
 

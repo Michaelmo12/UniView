@@ -37,6 +37,12 @@
   color: #555;
   position: relative;
   z-index: 1;
+  animation: dashFadeIn 0.5s ease both;
+}
+
+@keyframes dashFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 /* ─── Grid Wrapper ───────────────────────────────────────────── */
@@ -52,9 +58,10 @@
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(2, 1fr);
-  gap: 8px;
+  gap: 2px;
   flex: 1;
   overflow: hidden;
+  background: rgba(0, 255, 136, 0.08);
 }
 
 .uniview-grid--8 {
@@ -80,7 +87,7 @@
   background: #0f0f0f;
   overflow: hidden;
   cursor: pointer;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.2s ease, border-color 0.6s ease;
 }
 
 /* Corner brackets — four thin L-shaped lines drawn with pseudo-elements.
@@ -90,8 +97,8 @@
 .drone-cell::after {
   content: '';
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 22px;
+  height: 22px;
   z-index: 5;
   pointer-events: none;
   transition: width 0.15s ease, height 0.15s ease, border-color 0.15s ease;
@@ -114,8 +121,8 @@
 .drone-cell__corners::after {
   content: '';
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 22px;
+  height: 22px;
   z-index: 5;
   pointer-events: none;
   transition: width 0.15s ease, height 0.15s ease, border-color 0.15s ease;
@@ -134,16 +141,36 @@
 }
 
 
-/* Live tile — brighter corners + subtle glow when a payload is being received */
+/* Live tile — brighter corners + breathing animation */
 .drone-cell--live::before,
 .drone-cell--live::after,
 .drone-cell--live .drone-cell__corners::before,
 .drone-cell--live .drone-cell__corners::after {
   border-color: rgba(0, 255, 136, 0.75);
+  animation: cornerBreathe 2.5s ease-in-out infinite;
+}
+
+@keyframes cornerBreathe {
+  0%, 100% { width: 22px; height: 22px; border-color: rgba(0, 255, 136, 0.75); }
+  50%       { width: 26px; height: 26px; border-color: rgba(0, 255, 136, 1);    }
 }
 
 .drone-cell--live {
   box-shadow: none;
+}
+
+/* Scanlines div repurposed as vignette on live cells */
+.drone-cell--live .drone-cell__scanlines {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    rgba(0, 255, 136, 0.04) 100%
+  );
 }
 
 /* Scanline overlay — disabled */
@@ -160,9 +187,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 7px 9px;
+  padding: 8px 10px;
   z-index: 6;
-  background: linear-gradient(180deg, rgba(10,10,10,0.45) 0%, transparent 100%);
+  background: linear-gradient(180deg, rgba(10,10,10,0.6) 0%, rgba(10,10,10,0.2) 70%, transparent 100%);
+  min-height: 32px;
 }
 
 .drone-cell__id {
@@ -170,6 +198,34 @@
   letter-spacing: 2.5px;
   color: rgba(0, 255, 136, 0.6);
   font-weight: 500;
+}
+
+/* Right side of header — groups counters + status badge */
+.drone-cell__header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* DET / IDS counter chips */
+.drone-cell__counter {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.3);
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+}
+
+.drone-cell__counter strong {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgba(250, 204, 21, 0.85);
+  margin-left: 3px;
+}
+
+.drone-cell__counter--ids strong {
+  color: rgba(0, 212, 255, 0.85);
 }
 
 .drone-cell__status {
@@ -201,7 +257,7 @@
 }
 
 /* Cell body — fills the entire tile behind the HUD overlays.
- * When live: holds the <canvas> (z-index 2, behind scanlines/header/footer).
+ * When live: holds the canvas stack (z-index 2, behind scanlines/header/footer).
  * When offline: holds the crosshair nosignal placeholder. */
 .drone-cell__body {
   position: absolute;
@@ -210,16 +266,104 @@
   align-items: center;
   justify-content: center;
   z-index: 2;
+  transition: opacity 0.5s ease;
+}
+
+.drone-cell--offline .drone-cell__body {
+  opacity: 0.85;
+}
+
+/* Canvas stack — wraps the two stacked canvases (video + overlay).
+ * position:relative is required so the overlay canvas can be positioned
+ * absolutely on top of the video canvas with inset:0. */
+.drone-cell__canvas-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Video canvas — bottom layer, draws JPEG frames only */
+.drone-cell__video-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Overlay canvas — sits exactly on top of the video canvas.
+ * pointer-events: auto allows click events to reach handleOverlayClick.
+ * cursor: crosshair hints that clicking is meaningful. */
+.drone-cell__overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: crosshair;
+}
+
+/* Track info popup — appears when user clicks a confirmed bbox.
+ * Positioned in percentage coordinates relative to the canvas stack. */
+.drone-cell__track-popup {
+  position: absolute;
+  z-index: 8;
+  background: rgba(10, 10, 10, 0.92);
+  border: 1px solid rgba(0, 255, 136, 0.4);
+  border-radius: 4px;
+  padding: 8px 10px 8px 10px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: rgba(0, 255, 136, 0.85);
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  min-width: 160px;
+  pointer-events: auto;
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.1);
+}
+
+.drone-cell__track-popup__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.drone-cell__track-popup__row span:first-child {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.drone-cell__track-popup__close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 0;
+  line-height: 1;
+}
+
+.drone-cell__track-popup__close:hover {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .drone-cell__nosignal {
-  opacity: 0.1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  animation: nosignalPulse 3s ease-in-out infinite;
+}
+
+@keyframes nosignalPulse {
+  0%, 100% { opacity: 0.12; }
+  50%       { opacity: 0.22; }
 }
 
 /* Crosshair drawn with ::before (horizontal) and ::after (vertical) pseudo-elements */
 .drone-cell__crosshair {
-  width: 20px;
-  height: 20px;
+  width: 36px;
+  height: 36px;
   position: relative;
 }
 
@@ -241,6 +385,15 @@
   transform: translateX(-50%);
 }
 
+/* "NO SIGNAL" text label under the crosshair */
+.drone-cell__nosignal-label {
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #00ff88;
+  text-transform: uppercase;
+}
+
 /* Cell footer — HUD bar pinned to the bottom, mirrors the header structure.
  * Shows static metadata labels (resolution, channel, FPS).
  * Dim when offline, green-tinted when live. */
@@ -253,7 +406,7 @@
   padding: 6px 9px;
   z-index: 6;
   background: linear-gradient(0deg, rgba(10,10,10,0.65) 0%, transparent 100%);
-  font-size: 15px;
+  font-size: 11px;
   letter-spacing: 1px;
   color: rgba(255, 255, 255, 0.1);
   flex-wrap: nowrap;
