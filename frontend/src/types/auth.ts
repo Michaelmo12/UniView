@@ -12,8 +12,6 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
-  access_token: string;
-  token_type: string;
   user: User;
 }
 
@@ -26,7 +24,6 @@ export interface CreateUserRequest {
 
 export interface AuthContextType {
   user: User | null;
-  token: string | null;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;

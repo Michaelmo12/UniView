@@ -15,6 +15,19 @@
   z-index: 1;
 }
 
+@keyframes pageFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.history-header {
+  animation: pageFadeUp 0.4s ease-out both;
+}
+
+.history-section:nth-child(2) { animation-delay: 0.08s; }
+.history-section:nth-child(3) { animation-delay: 0.16s; }
+.history-section:nth-child(4) { animation-delay: 0.24s; }
+
 /* ─── Page Header ─────────────────────────────────────────────── */
 
 .history-header {
@@ -77,6 +90,7 @@
 
 .history-section {
   margin-bottom: 28px;
+  animation: pageFadeUp 0.45s ease-out both;
 }
 
 .history-section-label {

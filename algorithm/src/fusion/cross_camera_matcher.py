@@ -86,7 +86,6 @@ class CrossCameraMatcher:
             # Return all detections as unmatched
             all_detections = []
             
-            # 
             for det_set in detection_sets.values():
                 all_detections.extend(det_set.detections)
 
@@ -221,6 +220,8 @@ class CrossCameraMatcher:
 
         # ======= EPIPOLAR FILTER WORKS ON FEATURES LIST AND verify_candidates WORKS ON DETS =======
         
+        # STEP 1: Geometric filtering (epipolar constraint)
+        
         # Every possible pair of detections checked against epipolar
         for i, feat_a in enumerate(features_a):
             for j, feat_b in enumerate(features_b):
@@ -242,6 +243,8 @@ class CrossCameraMatcher:
         if len(geometric_candidates) == 0:
             return []
 
+        # STEP 2: Feature extraction
+        
         # CONVERT FROM FEATURES LIST TO DETECTIONS LIST
         # (REMINDER FEATURES MIGHT NOT HAVE ALL DETECTIONS BECAUSE OF SMALL CROPS)
         # fast lookup: local_id → Detection object
@@ -266,6 +269,7 @@ class CrossCameraMatcher:
         detections_a_aligned = list(feature_to_det_a.values())
         detections_b_aligned = list(feature_to_det_b.values())
 
+        # STEP 3: Appearance verification (WCH similarity + Hungarian)
         confirmed = self.appearance_matcher.verify_candidates(
             detections_a_aligned, detections_b_aligned, geometric_candidates
         )

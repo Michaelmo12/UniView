@@ -6,6 +6,8 @@ import "./Statistics.css";
 function Statistics() {
   const { data, loading, error, refetch } = useAlgorithmStats();
 
+  const isPipelineOffline = data !== null && data.pipeline_online === false;
+
   const statusColor = data
     ? data.system_status === "Optimal" ? "green"
     : data.system_status === "Warning" ? "orange"
@@ -46,8 +48,15 @@ function Statistics() {
         </div>
       )}
 
+      {data && isPipelineOffline && (
+        <div className="stats-offline">
+          <span className="stats-offline__dot" />
+          PIPELINE OFFLINE — NO ACTIVE DRONES DETECTED
+        </div>
+      )}
+
       {data && (
-        <>
+        <div className={isPipelineOffline ? "stats-dimmed" : ""}>
           <div className="stats-section">
             <div className="stats-section-label">Pipeline Metrics</div>
             <div className="stats-grid stats-grid--quad">
@@ -95,18 +104,30 @@ function Statistics() {
               Per-Stage Timings (avg ms)
             </div>
             <div className="stats-timings">
-              {(["detection", "features", "fusion", "reconstruction", "tracking", "total"] as const).map((stage) => {
+              {(["detection", "features", "fusion", "reconstruction", "tracking", "total"] as const).map((stage, i) => {
                 const ms = data.stage_timings_ms?.[stage] ?? 0;
                 const total = data.stage_timings_ms?.total || 1;
                 const pct = stage === "total" ? 100 : Math.round((ms / total) * 100);
                 const isTotal = stage === "total";
+                // Color shifts green → amber → red as percentage rises
+                const barColor = isTotal
+                  ? "rgba(0, 255, 136, 0.9)"
+                  : pct < 30
+                    ? "rgba(0, 255, 136, 0.65)"
+                    : pct < 60
+                      ? "rgba(251, 191, 36, 0.75)"
+                      : "rgba(255, 68, 68, 0.75)";
                 return (
                   <div key={stage} className={`stats-timing-row${isTotal ? " stats-timing-row--total" : ""}`}>
                     <span className="stats-timing-label">{stage}</span>
                     <div className="stats-timing-bar-wrap">
                       <div
                         className="stats-timing-bar"
-                        style={{ width: `${pct}%` }}
+                        style={{
+                          "--bar-width": `${pct}%`,
+                          "--bar-color": barColor,
+                          animationDelay: `${i * 0.08}s`,
+                        } as React.CSSProperties}
                       />
                     </div>
                     <span className="stats-timing-value">{ms.toFixed(1)} ms</span>
@@ -116,7 +137,7 @@ function Statistics() {
               })}
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

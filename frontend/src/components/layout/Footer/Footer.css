@@ -1,28 +1,10 @@
 .footer {
-  height: 44px;
+  height: 32px;
   background: #0d0d0d;
-  border-top: 1px solid rgba(0, 255, 136, 0.08);
-  margin-top: auto;
+  border-top: 1px solid rgba(0, 255, 136, 0.06);
   position: sticky;
   bottom: 0;
   z-index: 1000;
-}
-
-.footer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(0, 255, 136, 0.3) 30%,
-    rgba(0, 255, 136, 0.55) 50%,
-    rgba(0, 255, 136, 0.3) 70%,
-    transparent 100%
-  );
 }
 
 .footer-container {
@@ -37,31 +19,30 @@
 
 .footer-text {
   margin: 0;
-  font-family: var(--font-ui, sans-serif);
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.2);
-  letter-spacing: 0.3px;
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.1);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
 }
 
 .creator-name {
-  font-weight: 600;
-  color: rgba(0, 255, 136, 0.55);
+  color: rgba(0, 255, 136, 0.3);
+  font-weight: 400;
 }
 
 .footer-email {
-  font-family: var(--font-ui, sans-serif);
-  font-size: 0.75rem;
-  color: rgba(0, 255, 136, 0.35);
+  font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.1);
   text-decoration: none;
-  padding: 0.2rem 0.6rem;
-  border-radius: 3px;
-  border: 1px solid rgba(0, 255, 136, 0.12);
-  letter-spacing: 0.3px;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  letter-spacing: 1px;
+  transition: color 0.15s ease;
+  border: none;
+  padding: 0;
 }
 
 .footer-email:hover {
-  color: rgba(0, 255, 136, 0.7);
-  border-color: rgba(0, 255, 136, 0.3);
+  color: rgba(0, 255, 136, 0.4);
   text-decoration: none;
 }

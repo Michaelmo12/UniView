@@ -10,12 +10,10 @@ class APIError extends Error {
   }
 }
 
-// Called on any 401 response — clears storage and redirects to login.
-// Defined here so both apiRequest and useSSEStream can call it.
+// Called on any 401 response — clears user state and redirects to login.
 export function handleUnauthorized(): void {
-  localStorage.removeItem('token');
   localStorage.removeItem('user');
-  sessionStorage.removeItem('token');
+  localStorage.removeItem('rememberMe');
   sessionStorage.removeItem('user');
   window.location.href = '/login';
 }
@@ -24,19 +22,15 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   };
 
-  if (token && !endpoint.includes('/login')) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
+    // credentials: 'include' sends the HttpOnly cookie with every request automatically
+    credentials: 'include',
     headers,
   });
 

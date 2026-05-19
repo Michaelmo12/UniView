@@ -7,72 +7,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check localStorage first (rememberMe = true), then sessionStorage (rememberMe = false)
+    // Restore user profile from storage on page load.
+    // The JWT lives in an HttpOnly cookie — the browser sends it automatically.
+    // We only need to restore the user object for the UI.
     const rememberMe = localStorage.getItem('rememberMe') === 'true';
     const storage = rememberMe ? localStorage : sessionStorage;
-
-    const storedToken = storage.getItem('token');
     const storedUser = storage.getItem('user');
-
-    if (storedToken && storedUser) {
-      // Decode the JWT payload (middle part) and check expiration before restoring session.
-      // If the token is expired, clear storage and leave the user logged out.
+    if (storedUser) {
       try {
-        const payload = JSON.parse(atob(storedToken.split('.')[1]));
-        const isExpired = payload.exp && payload.exp * 1000 < Date.now();
-        if (isExpired) {
-          storage.removeItem('token');
-          storage.removeItem('user');
-          return;
-        }
+        setUser(JSON.parse(storedUser));
       } catch {
-        // Malformed token — clear it
-        storage.removeItem('token');
         storage.removeItem('user');
-        return;
       }
-
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
     }
   }, []);
-
-  // Check token expiry every minute — if expired, log the user out automatically.
-  // This catches tokens that expire while the user is already on the page,
-  // so they don't stay in a "logged in" UI state with a dead token.
-  useEffect(() => {
-    if (!token) return;
-
-    const checkExpiry = () => {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (payload.exp && payload.exp * 1000 < Date.now()) {
-          logout();
-        }
-      } catch {
-        logout();
-      }
-    };
-
-    const interval = setInterval(checkExpiry, 60_000);
-    return () => clearInterval(interval);
-  }, [token]);
 
   const login = async (email: string, password: string, rememberMe: boolean = false) => {
     const response = await authAPI.login({ email, password });
 
-    setToken(response.access_token);
     setUser(response.user);
 
-    // Store rememberMe preference in localStorage (persists across sessions)
+    // Store rememberMe preference and user profile for UI restoration on reload.
+    // The JWT itself is stored in an HttpOnly cookie set by the gateway.
     localStorage.setItem('rememberMe', rememberMe.toString());
-
-    // Store token/user in appropriate storage based on rememberMe
     const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('token', response.access_token);
     storage.setItem('user', JSON.stringify(response.user));
   };
 
@@ -82,22 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      setToken(null);
       setUser(null);
-      // Clear from both storages to ensure complete logout
-      localStorage.removeItem('token');
       localStorage.removeItem('user');
-      sessionStorage.removeItem('token');
+      localStorage.removeItem('rememberMe');
       sessionStorage.removeItem('user');
+      sessionStorage.removeItem('welcome_shown');
     }
   };
 
   const value: AuthContextType = {
     user,
-    token,
     login,
     logout,
-    isAuthenticated: !!token && !!user,
+    isAuthenticated: !!user,
     isAdmin: user?.role === 'admin',
   };
 

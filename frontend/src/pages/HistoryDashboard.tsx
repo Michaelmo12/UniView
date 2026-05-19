@@ -10,6 +10,8 @@
 
 import { useState, useEffect } from "react";
 import {
+  AreaChart,
+  Area,
   LineChart,
   Line,
   XAxis,
@@ -115,10 +117,11 @@ function HistoryDashboard() {
     async function fetchHistory() {
       try {
         setLoading(true);
-        // fetch only today's history — start_time = midnight UTC today
-        const startOfDay = new Date();
-        startOfDay.setHours(0, 0, 0, 0);
-        const start_time = startOfDay.toISOString();
+        // fetch last 2 days of history
+        const twoDaysAgo = new Date();
+        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+        twoDaysAgo.setHours(0, 0, 0, 0);
+        const start_time = twoDaysAgo.toISOString();
         const data = await apiRequest<HistoryLogAPI[]>(`/history?start_time=${encodeURIComponent(start_time)}`);
         if (cancelled) return;
         // map raw API fields to cleaner display names and format timestamp to HH:MM
@@ -203,9 +206,9 @@ function HistoryDashboard() {
 
   const statCards: StatCardConfig[] = [
     {
-      label: "Avg Persons Detected",
+      label: "Avg Detections / Drone",
       value: avgPersons,
-      desc: "Mean tracked persons per minute across the session",
+      desc: "Mean tracks per drone per frame, averaged over session",
       modifier: "green",
       Icon: Users,
     },
@@ -279,15 +282,20 @@ function HistoryDashboard() {
         <div className="history-section-label">Tracked Persons Over Time</div>
         <div className="history-chart">
           <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={logs} margin={{ top: 8, right: 24, left: -12, bottom: 0 }}>
-              {/* faint horizontal grid lines — no vertical lines to keep it clean */}
+            <AreaChart data={logs} margin={{ top: 8, right: 24, left: -12, bottom: 0 }}>
+              <defs>
+                {/* Gradient fill under the primary persons area */}
+                <linearGradient id="personsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#00ff88" stopOpacity={0.18} />
+                  <stop offset="100%" stopColor="#00ff88" stopOpacity={0}    />
+                </linearGradient>
+              </defs>
+
               <CartesianGrid
                 strokeDasharray="3 6"
                 stroke="rgba(0,255,136,0.06)"
                 vertical={false}
               />
-
-              {/* X axis — time labels (HH:MM), shown every 4th entry to avoid crowding */}
               <XAxis
                 dataKey="timestamp"
                 tick={{ fill: "rgba(255,255,255,0.2)", fontSize: 10, fontFamily: "var(--font-mono)" }}
@@ -295,15 +303,12 @@ function HistoryDashboard() {
                 axisLine={{ stroke: "rgba(0,255,136,0.08)" }}
                 interval={4}
               />
-              {/* Y axis — person/drone count */}
               <YAxis
                 tick={{ fill: "rgba(255,255,255,0.2)", fontSize: 10, fontFamily: "var(--font-mono)" }}
                 tickLine={false}
                 axisLine={false}
                 width={32}
               />
-
-              {/* horizontal dashed line at the session average — visual reference */}
               <ReferenceLine
                 y={avgPersons}
                 stroke="rgba(0,212,255,0.25)"
@@ -316,21 +321,22 @@ function HistoryDashboard() {
                   position: "insideTopRight",
                 }}
               />
-
-              {/* custom tooltip shown on hover — displays all line values at that minute */}
               <Tooltip content={<ChartTooltip />} />
 
-              {/* avg persons per minute — primary green line */}
-              <Line
+              {/* Primary area — avg persons with gradient fill */}
+              <Area
                 type="monotone"
                 dataKey="totalPersons"
                 stroke="#00ff88"
                 strokeWidth={2}
+                fill="url(#personsGradient)"
                 dot={false}
                 activeDot={{ r: 4, fill: "#00ff88", stroke: "#0d0d0d", strokeWidth: 2 }}
+                isAnimationActive={true}
+                animationDuration={800}
+                animationEasing="ease-out"
               />
-
-              {/* peak persons per minute — orange dashed envelope above avg */}
+              {/* Secondary lines — no fill, overlaid on the area */}
               <Line
                 type="monotone"
                 dataKey="peakPersons"
@@ -340,8 +346,6 @@ function HistoryDashboard() {
                 dot={false}
                 activeDot={{ r: 3, fill: "#ff9500", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
-
-              {/* active drones per minute — cyan dashed */}
               <Line
                 type="monotone"
                 dataKey="activeDrones"
@@ -351,8 +355,6 @@ function HistoryDashboard() {
                 dot={false}
                 activeDot={{ r: 3, fill: "#00d4ff", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
-
-              {/* cross-camera re-ID matches per minute — purple dotted */}
               <Line
                 type="monotone"
                 dataKey="crossCameraMatches"
@@ -362,7 +364,7 @@ function HistoryDashboard() {
                 dot={false}
                 activeDot={{ r: 3, fill: "#b968ff", stroke: "#0d0d0d", strokeWidth: 2 }}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
 
           {/* Chart legend */}

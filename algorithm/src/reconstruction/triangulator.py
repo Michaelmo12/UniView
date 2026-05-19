@@ -96,7 +96,6 @@ class Triangulator:
             )
             detection_ids.append((drone_id, local_id))
 
-        # need at least 2 views to triangulate — return empty and signal fallback
         if len(points_2d) < 2:
             return [], True
 
@@ -108,6 +107,7 @@ class Triangulator:
         ps_list = []
         for k in range(len(points_2d)):
             ps_list.append(projection_matrices[k].astype(np.float64))
+            
         # stacks all P matrices into one (N, 3, 4) array one P per row
         all_Ps = np.stack(ps_list, axis=0)
         all_pts = np.array(points_2d, dtype=np.float64)  # (N, 2)
@@ -123,7 +123,7 @@ class Triangulator:
             # Slice active views once per pruning round
             # so we reproject only with active
             act_Ps = all_Ps[active]  # (A, 3, 4)
-            act_pts = all_pts[active]  # (A, 2)
+            actual_pts = all_pts[active]  # (A, 2)
 
             # for each unique pair of active views triangulate X and reproject into all active cameras to count bad views
             for i in range(len(active)):
@@ -142,18 +142,24 @@ class Triangulator:
 
                     # Vectorized per-view reprojection: (A, 3, 4) @ (4,) → (A, 3)
                     X4 = np.append(X, 1.0)  # (4,) add 1 for P multiplication
+                    
                     # project X into all active cameras at once, gives (A, 3) = one [u,v,w] per camera
                     proj = act_Ps @ X4  # (A, 3)
+                    
                     # extract w (depth) from each projection
                     depths = proj[:, 2]  # (A,)
+                    
                     # flag cameras where depth≈0 (degenerate, can't divide)
                     bad_depth = np.abs(depths) < EPS_DENOM
+                    
                     # for each camera: if depth was bad → use inf, otherwise use u/w (real pixel x). Same for y.
                     with np.errstate(divide="ignore", invalid="ignore"):
                         px = np.where(bad_depth, np.inf, proj[:, 0] / depths)
                         py = np.where(bad_depth, np.inf, proj[:, 1] / depths)
+                        
                     # same as sqrt(dx² + dy²) but vectorized.
-                    per_view = np.hypot(px - act_pts[:, 0], py - act_pts[:, 1])
+                    # pitagoras 
+                    per_view = np.hypot(px - actual_pts[:, 0], py - actual_pts[:, 1])
 
                     # how many pairs produced a valid X.
                     valid_pairs += 1
